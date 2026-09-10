@@ -1,0 +1,15 @@
+# secrets and local env
+.env
+.env.*
+!.env.example
+# local data
+service/data/
+ontology/seed/local/
+# node
+node_modules/
+dist/
+coverage/
+# os / editor
+.DS_Store
+# rendered agent config with real numbers
+agent/agent_configs/helpdesk.rendered.json
