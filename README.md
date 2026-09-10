@@ -44,7 +44,7 @@ Execution stops at each of these. Nothing is stubbed past them.
 
 ## Conventions
 
-- Every `pltr` command targets the zap profile: `pltr -p zap …`.
+- Every `pltr` command targets the zap profile: `pltr <command> --profile zap`.
 - Secrets never enter the repo. `.env` is gitignored; `.env.example` lists names only.
 - The seed CSVs are committed with a placeholder phone number and the example pepper. Real values are generated locally into `ontology/seed/local/`.
 - Tests are the proof. `cd service && pnpm check` must pass before a commit.
