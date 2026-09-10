@@ -5,8 +5,7 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 ## Pre-flight (15 minutes before)
 
 1. Laptop on an allowed network or VPN: `~/.local/bin/pltr admin user current --profile zap` prints your user.
-2. Railway service up: `curl -s https://<railway-url>/health` returns `{"ok":true}`.
-3. Foundry login fresh: `curl -s https://<railway-url>/auth/status` says `ok`. If it says `logged_out` (after a restart or 30 idle days), open `https://<railway-url>/auth/start?t=<FOUNDRY_LOGIN_TOKEN>` in a browser, sign in, and re-check.
+2. Railway service up: `curl -s https://<railway-url>/health` returns `{"ok":true,"adapter":"foundry","auth":"ok"}`. If `adapter` is `not-ready`, the deploy predates U3; if `auth` is `logged_out` (after a restart or 30 idle days), open `https://<railway-url>/auth/start?t=<FOUNDRY_LOGIN_TOKEN>` in a browser, sign in, and re-check.
 4. Workshop module open on the Issues table, sorted newest first, with the Action log panel visible.
 5. Demo phone charged, caller id not withheld, keypad tones enabled.
 6. `voice-helpdesk-writers` group page open in another tab (for the fail-closed scenario).

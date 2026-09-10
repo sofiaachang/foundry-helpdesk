@@ -25,7 +25,7 @@ curl -s -X POST localhost:3000/tools/verify_caller -H 'content-type: application
   -d '{"conversation_id":"conv_local_0001","caller_id":"+15550100000","digits":"4321"}'
 ```
 
-The fake adapter serves the committed seed (demo caller `u-demo`, PIN `4321`, issue `4127`). It is refused when `NODE_ENV=production`.
+The fake adapter serves the committed seed (demo caller `u-demo`, PIN `4321`, issue `4127`). It is refused when `NODE_ENV=production`, as is `not-ready` unless `FOUNDRY_ALLOW_NOT_READY=1`. `GET /health` reports `{ok, adapter, auth}` where `auth` is the delegated-login status.
 
 ## What only a human can do (the gates)
 
