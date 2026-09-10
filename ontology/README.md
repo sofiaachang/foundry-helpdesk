@@ -271,13 +271,13 @@ Fill these in at U1/U3/U4 and keep them here as the single source. The service r
 | Project `voice-helpdesk` | n/a | `ri.compass.main.folder.9272e104-dd62-4897-9884-ef6a225252da` | U1 (recorded 2026-09-09) |
 | Developer Console app `voice-helpdesk-service` (client-facing, user permissions, public client) | client id: `34afe235bf7f22065704d3d9dc9a46c9` (public), redirect `http://localhost:3000/auth/callback` registered, SDK generated | `ri.third-party-applications.main.application.48122a96-e9b1-44e9-8df8-e1665a11fade` | U1 (RID recorded 2026-09-09) |
 | Group `voice-helpdesk-writers` (AE7 lever) | n/a | created 2026-09-09, demo user is a member | U4 |
-| Object type User | `<TBD, e.g. HelpdeskUser>` | `ri.ontology.main.object-type.<TBD>` | U3 |
-| Object type Issue | `<TBD, e.g. HelpdeskIssue>` | `ri.ontology.main.object-type.<TBD>` | U3 |
-| Object type Site | `<TBD>` | `ri.ontology.main.object-type.<TBD>` | U3 |
-| Object type Team | `<TBD>` | `ri.ontology.main.object-type.<TBD>` | U3 |
-| Link Issue → User | `reportedBy` / `reportedIssues` | `ri.ontology.main.link-type.<TBD>` | U3 |
-| Link Issue → Team | `assignedTeam` / `assignedIssues` | `ri.ontology.main.link-type.<TBD>` | U3 |
-| Link User → Site | `site` / `users` | `ri.ontology.main.link-type.<TBD>` | U3 |
+| Object type User | `HelpdeskUser` | internal id `kid3ntuq.helpdesk-user`, dataset `ri.foundry.main.dataset.32b82b67-0a35-4062-a13a-5d53429ca69a` | U3 done 2026-09-10 (CLI) |
+| Object type Issue | `HelpdeskIssue` | internal id `kid3ntuq.helpdesk-issue`, dataset `ri.foundry.main.dataset.83af1b9d-2a6f-48ad-abfe-4810cc249fae` | U3 done 2026-09-10 (CLI) |
+| Object type Site | `Site` | internal id `kid3ntuq.site`, dataset `ri.foundry.main.dataset.c9cdd0a7-aefe-46d7-bbe4-4d40ac569d63` | U3 done 2026-09-10 (CLI) |
+| Object type Team | `Team` | internal id `kid3ntuq.team`, dataset `ri.foundry.main.dataset.829e5a8f-208b-4da6-9731-7c11b5e60bcd` | U3 done 2026-09-10 (CLI) |
+| Link Issue → User | `reportedBy` (many→one) / `reportedIssues` (one→many) | internal id `kid3ntuq.reported-issues` | U3 done 2026-09-10 (CLI) |
+| Link Issue → Team | `assignedTeam` / `assignedIssues` | internal id `kid3ntuq.assigned-issues` | U3 done 2026-09-10 (CLI) |
+| Link User → Site | `site` / `users` | internal id `kid3ntuq.users` | U3 done 2026-09-10 (CLI) |
 | Value type status | `helpdeskIssueStatus` | `ri.value-types.<TBD>` | U3 |
 | Value type priority | `helpdeskIssuePriority` | `ri.value-types.<TBD>` | U3 |
 | Action create-helpdesk-issue | `createHelpdeskIssue` | `ri.actions.main.action-type.<TBD>` | U4 |
