@@ -129,7 +129,7 @@ Ontology Manager > **New > Create link type**, relationship **Object type foreig
 
 The two-hop reads the service needs (Issue → Team → Issues for AE4; Site → Users → Issues for the site count) are all pivots over these three links.
 
-### 2.4 Verification (pltr smoke reads, after U1 gives the service user access)
+### 2.4 Verification (pltr smoke reads, after U1 confirms the delegated user token works)
 
 ```sh
 ONT=ri.ontology.main.ontology.1a944941-d587-4363-8314-d6274b7b0381

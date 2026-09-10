@@ -33,8 +33,8 @@ Execution stops at each of these. Nothing is stubbed past them.
 
 | Gate | Do this | Unblocks |
 |---|---|---|
-| G1 | On the zap stack, confirm you can create object types and Actions. Create the `voice-helpdesk` project in the Raava space. Create the Developer Console backend-service application (application permissions) and the restricted twin. Record scope strings and roles in `ontology/README.md`. | U1, U3 upload |
-| G3 | Generate client credentials for both applications and store them in the Railway dashboard, never in the repo. | U1 probe, U8 |
+| G1 | Done 2026-09-09: project `voice-helpdesk` exists; zap has no client-credentials grant, so the app is a client-facing public client with user permissions (plan KTD3). Create it in Developer Console with redirect URL `http://localhost:3000/auth/callback`, generate the SDK for Raava Ontology, and record the client id, app RID, and scope strings in `ontology/README.md`. Create the group `voice-helpdesk-writers` with yourself in it. | U1, U3 upload |
+| G3 | No client secret exists for a public client. Instead, log in once through the service (`/auth/start`) after deploy; the refresh token lives in the service's memory. Re-authorise after any restart. | U1 probe, U8 |
 | G2 | Read `docs/contract/integration-contract.md` and sign it off (or redline it). | U4, U9 final, U10 |
 | G4a | Create the ElevenLabs workspace, pick a plan tier, and create the workspace secret `helpdesk_shared_secret`. | U14, U15 secret |
 | G5 | Buy a Twilio number and import it into ElevenLabs. Needed early, for the keypad spike. | U14, U11 |

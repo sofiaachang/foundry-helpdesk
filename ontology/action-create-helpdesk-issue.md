@@ -80,20 +80,20 @@ Recipients must be Foundry principals; the synthetic `User` objects are not Foun
 
 Notes from `action-types/set-up-notification.md` and `action-types/permissions.md`: the recipient must have view access to every object referenced in the content or the notification is silently not sent, the submitting user (the service user) must be able to view the recipient principal, and a failed notification does not roll back the edit. Test with the administrator as recipient by applying the Action from the Object View before wiring the service.
 
-## 6. Developer Console applications (KTD3)
+## 6. Developer Console application (KTD3)
 
-Both are **backend service** applications with **Application permissions** (generated service user, client credentials grant, no authorization-code grant, no redirect URL). Both generate an Ontology SDK over the Raava Ontology (`developer-console/create-application.md`, `developer-console/permissions.md`).
+G1 finding (2026-09-09): the zap enrollment plan has no client-credentials grant, so a backend-service application with a service user cannot be created. The application is therefore **client-facing** with **User permissions**: a public OAuth client (no secret) that the service drives through the authorization-code grant with PKCE and the `offline_access` scope, acting as the delegated demo user. The app's resource access restrictions still bound the token to the resources in its SDK scope.
 
-| | Main app (`voice-helpdesk-service`) | Restricted app (`voice-helpdesk-restricted`, AE7 only) |
-|---|---|---|
-| SDK scope | Object types `User`, `Issue`, `Site`, `Team`; Action `createHelpdeskIssue` | Identical scope (the Action is in scope so AE7 fails at apply time, never as an OAuth scope error) |
-| Project role on `voice-helpdesk` | **Viewer** (covers the four backing datasets, the value types, and the log object type's dataset) | **Viewer** |
-| Issue dataset edit role | The minimum edit role the Action needs. With **Only allow edits via actions** on (OSv2, `object-link-types/allow-editing.md`), no dataset edit role is required; if the console still demands one at U1, grant **Editor** on `helpdesk_issues` only and record it. | None |
-| Apply role on the Action | Member of `voice-helpdesk-writers` (passes submission criteria) | Not a member (fails submission criteria, so no edit and no side effects) |
-| Ontology Manager / Owner roles | None | None |
-| Used by | Service, all normal calls | Service, only when `FOUNDRY_RESTRICTED_CLIENT_ID` is selected for the AE7 run |
+| | App `voice-helpdesk-service` |
+|---|---|
+| Type / permissions | Client-facing, User permissions, public client, PKCE |
+| Redirect URLs | `http://localhost:3000/auth/callback` now; the Railway URL `/auth/callback` added at G6 |
+| SDK scope | Object types `User`, `Issue`, `Site`, `Team`; Action `createHelpdeskIssue` (added after U3 and U4) |
+| Delegated user | The demo user (Sofia). Project role on `voice-helpdesk`: Owner already; nothing to grant |
+| Apply gate on the Action | Submission criteria: current user must belong to group `voice-helpdesk-writers` (KTD4a). AE7 removes the user from the group for one call |
+| Production alternative | Confidential client with a generated service user (named in the limitations write-up) |
 
-Grant the roles at the project level (`voice-helpdesk` project > **Manage** > roles) so nothing outside the project is visible to either service user. Record scope strings, client ids, and service user ids in the README table.
+Record the client id, application RID, scope strings, and the SDK install command in the README table. There is no client secret and no restricted twin.
 
 ## 7. Expected validation and permission cases (observe and record at U4)
 
@@ -105,7 +105,7 @@ Apply via `pltr -p zap ontology action-validate <ontology rid> createHelpdeskIss
 | 2 | Empty title | as 1 but `title=""` | `INVALID`; parameter-level failure naming `title` (length 5 to 120); nothing created | |
 | 3 | Unknown team reference | as 1 but `assignedTeam=nope` | `INVALID`; object reference parameter cannot resolve `Team` `nope`; nothing created | |
 | 4 | Duplicate `issueId` | as 1 (`7342` already exists) | `INVALID`; primary key already exists; nothing created (service redraws once, KTD16) | |
-| 5 | Restricted app (AE7) | as 1 with `issueId=7343`, restricted client id | Apply denied at Action level (submission criteria / permission), nothing created, no log object, no notification | |
+| 5 | Outside the writers group (AE7) | as 1 with `issueId=7343`, demo user removed from `voice-helpdesk-writers` | Submission criteria not met; apply denied, nothing created, no log object, no notification | |
 | 6 | Bad `issueId` shape | as 1 but `issueId=12345` | `INVALID`; regex failure naming `issueId` | |
 | 7 | Priority outside the value type | as 1 but `priority=urgent` | `INVALID`; multiple-choice failure naming `priority` | |
 
