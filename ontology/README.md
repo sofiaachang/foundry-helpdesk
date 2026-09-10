@@ -2,7 +2,7 @@
 
 Four object types (`User`, `Issue`, `Site`, `Team`), three links, two value types, one Action (`create-helpdesk-issue`), all living in a dedicated `voice-helpdesk` project in the **Raava** space on the **zap** stack (`zap.usw-18.palantirfoundry.com`).
 
-**Every `pltr` command in this folder must use `pltr -p zap`.** The CLI's default profile points at an unrelated tenant and returns 404 / UNAUTHORIZED against the Raava stacks.
+**Every `pltr` command in this folder must use `--profile zap` after the subcommand (for example `pltr admin user current --profile zap`).** The CLI's default profile points at an unrelated tenant and returns 404 / UNAUTHORIZED against the Raava stacks.
 
 Plan references: `docs/plans/2026-09-09-001-feat-voice-helpdesk-foundry-plan.md` (Goal Capsule, U3, U4, KTD3, KTD7, KTD9, KTD16, ERD under High-Level Technical Design, D6 to D8). Action spec: `ontology/action-create-helpdesk-issue.md`.
 
@@ -76,7 +76,7 @@ Salient terms are lower-cased alphanumeric tokens minus the stop words `the, on,
 Smoke check after upload:
 
 ```sh
-pltr -p zap dataset get <helpdesk_issues rid>
+pltr dataset get <helpdesk_issues rid> --profile zap
 ```
 
 ---
@@ -133,11 +133,11 @@ The two-hop reads the service needs (Issue → Team → Issues for AE4; Site →
 
 ```sh
 ONT=ri.ontology.main.ontology.1a944941-d587-4363-8314-d6274b7b0381
-pltr -p zap ontology object-type-list $ONT                                   # four new types present
-pltr -p zap ontology object-get $ONT HelpdeskIssue 4127                      # AE3: status + assignedTeamId
-pltr -p zap ontology object-linked $ONT HelpdeskIssue 4127 assignedTeam     # link resolves to team platform
-pltr -p zap ontology object-get $ONT HelpdeskIssue 2210                      # AE5 resolved issue
-pltr -p zap ontology object-count $ONT HelpdeskUser                          # 12
+pltr ontology object-type-list $ONT --profile zap   # four new types present
+pltr ontology object-get $ONT HelpdeskIssue 4127 --profile zap   # AE3: status + assignedTeamId
+pltr ontology object-linked $ONT HelpdeskIssue 4127 assignedTeam --profile zap   # link resolves to team platform
+pltr ontology object-get $ONT HelpdeskIssue 2210 --profile zap   # AE5 resolved issue
+pltr ontology object-count $ONT HelpdeskUser --profile zap   # 12
 ```
 
 Substitute the recorded api names if the console assigned different ones.
