@@ -116,7 +116,13 @@ json_field() {
 import json
 import sys
 
-data = json.loads(sys.argv[1])
+raw = sys.argv[1]
+# pltr prints human status lines ("✅ ...", "ℹ️ ...") before the JSON body; parse from the first brace.
+start = raw.find("{")
+if start < 0:
+    print("")
+    sys.exit(0)
+data = json.JSONDecoder().raw_decode(raw[start:])[0]
 value = data.get(sys.argv[2])
 print(value if value is not None else "")
 PY
