@@ -35,11 +35,11 @@ Execution stops at each of these. Nothing is stubbed past them.
 |---|---|---|
 | G1 | Done 2026-09-09: project `voice-helpdesk` exists; zap has no client-credentials grant, so the app is a client-facing public client with user permissions (plan KTD3). Create it in Developer Console with redirect URL `http://localhost:3000/auth/callback`, generate the SDK for Raava Ontology, and record the client id, app RID, and scope strings in `ontology/README.md`. Create the group `voice-helpdesk-writers` with yourself in it. | U1, U3 upload |
 | G3 | No client secret exists for a public client. Instead, log in once through the service (`/auth/start`) after deploy; the refresh token lives in the service's memory. Re-authorise after any restart. | U1 probe, U8 |
-| G2 | Read `docs/contract/integration-contract.md` and sign it off (or redline it). | U4, U9 final, U10 |
+| G2 | Signed 2026-09-10 (`docs/contract/integration-contract.md`). | U4, U9 final, U10 |
 | G4a | Done 2026-09-09: ElevenLabs workspace on the free plan (15 agent minutes a month; Starter if rehearsals exhaust it). Still to do at U10 push: create the workspace secret `helpdesk_shared_secret`. | U14, U15 secret |
 | G5 | Done 2026-09-09: a Twilio trial number is imported into ElevenLabs and attached to an existing agent. Decision: create the new agent `helpdesk-phone` from `agent/` and move the number to it at U11; leave the existing agent untouched. | U14, U11 |
 | G4b | After the keypad spike, decide conversation and audio retention (recommendation in plan KTD14). | U10 push |
-| G6 | Deploy `service/` to Railway from this repo (a US region), set the env vars from `service/.env.example`, record the HTTPS URL, paste it and the secret into the agent tools. Precondition found 2026-09-09: zap enforces a network ingress allowlist; confirm Railway's egress addresses are allowed (country rule, or add Railway static IPs via a Control Panel ingress change request) before the first tool call. | U10 tool URLs |
+| G6 | Deploy `service/` to Railway from this repo (a US region), set the env vars from `service/.env.example`, record the HTTPS URL, paste it and the secret into the agent tools. Ingress allowlist confirmed 2026-09-10: countries United States and Canada. A US-region Railway deploy passes; no change request needed. The laptop must not be on a VPN exiting elsewhere. | U10 tool URLs |
 | G7 | Run the full call yourself and sign off before any demo polish. | U13 |
 
 ## Conventions
