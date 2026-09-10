@@ -423,12 +423,17 @@ upsert_link_type() {
 
 cmd_links() {
   check_pltr_binary
-  upsert_link_type reportedBy OBJECT_TYPE_ID_HELPDESKISSUE OBJECT_TYPE_ID_HELPDESKUSER \
-    "Reported by" reportedIssues userId reportedByUserId
-  upsert_link_type assignedTeam OBJECT_TYPE_ID_HELPDESKISSUE OBJECT_TYPE_ID_TEAM \
-    "Assigned team" assignedIssues teamId assignedTeamId
-  upsert_link_type site OBJECT_TYPE_ID_HELPDESKUSER OBJECT_TYPE_ID_SITE \
-    "Site" users siteId siteId
+  # Verified against zap's dry-run (2026-09-10): --from-object-type-id is the
+  # ONE side, --to-object-type-id the MANY side, --api-name the one-to-many
+  # direction, --reverse-api-name the many-to-one direction, and
+  # --many-side-property takes the property's internal snake_case id.
+  # The service reads the many-to-one names (reportedBy, assignedTeam, site).
+  upsert_link_type reportedIssues OBJECT_TYPE_ID_HELPDESKUSER OBJECT_TYPE_ID_HELPDESKISSUE \
+    "Reported issues" reportedBy userId reported_by_user_id
+  upsert_link_type assignedIssues OBJECT_TYPE_ID_TEAM OBJECT_TYPE_ID_HELPDESKISSUE \
+    "Assigned issues" assignedTeam teamId assigned_team_id
+  upsert_link_type users OBJECT_TYPE_ID_SITE OBJECT_TYPE_ID_HELPDESKUSER \
+    "Users" site siteId site_id
 }
 
 # ---------------------------------------------------------------------------
