@@ -19,10 +19,16 @@ Environment variables are listed in `.env.example`.
 | Value | What runs | When |
 | --- | --- | --- |
 | `foundry` (default; `osdk` accepted as an alias) | `RestFoundryAdapter` in `src/foundry/rest.ts` | Production and any run against the zap stack |
-| `not-ready` | `NotReadyFoundryAdapter` in `src/foundry/osdk.ts`: `/health` and `/auth/*` work, every tool call fails closed with the contract's `failed` envelope | The pre-U3 deploy (login can be rehearsed before the ontology exists) and route tests |
+| `not-ready` | `NotReadyFoundryAdapter` in `src/foundry/osdk.ts`: `/health` and `/auth/*` work, every tool call fails closed with the contract's `failed` envelope | The pre-U3 deploy (login can be rehearsed before the ontology exists) and route tests. Refused when `NODE_ENV=production` unless `FOUNDRY_ALLOW_NOT_READY=1`, so it cannot boot silently as the real deploy |
 | `fake` | `FakeFoundryAdapter` in `src/foundry/fake.ts` over the seed CSVs | Local runs only; refused when `NODE_ENV=production` |
 
-`foundry` and `not-ready` both need `FOUNDRY_STACK_URL`, `FOUNDRY_CLIENT_ID`, `FOUNDRY_ONTOLOGY_RID`, `FOUNDRY_REDIRECT_URL`, and `FOUNDRY_LOGIN_TOKEN`; the human logs in once through `GET /auth/start?t=<login token>` and the service refreshes the delegated user token unattended (plan KTD3).
+`foundry` and `not-ready` both need `FOUNDRY_STACK_URL`, `FOUNDRY_CLIENT_ID`, `FOUNDRY_ONTOLOGY_RID`, `FOUNDRY_REDIRECT_URL`, and `FOUNDRY_LOGIN_TOKEN`; the human logs in once through `GET /auth/start?t=<login token>` and the service refreshes the delegated user token unattended (plan KTD3). The login token gates `/auth/start` only; the OAuth `state` is random and carries no token material.
+
+`GET /health` answers `{"ok":true,"adapter":"<mode>","auth":"<logged_out|ok|expired|n/a>"}`: `auth` is the delegated login status for `foundry` and `not-ready`, and `n/a` for `fake`. It never carries a token or an expiry (`/auth/status` has the expiry).
+
+### Pre-U3 deploy
+
+Deploy with `FOUNDRY_ADAPTER=not-ready` and `FOUNDRY_ALLOW_NOT_READY=1`, complete the login through `/auth/start?t=<login token>`, and confirm `/health` shows `"auth":"ok"`. Every tool call fails closed until the adapter is switched to `foundry`; drop `FOUNDRY_ALLOW_NOT_READY` at that point.
 
 ### The REST adapter
 
@@ -38,7 +44,11 @@ Calls per tool:
 - `findResolvedIssuesMatching`: resolved issues whose title or description `containsAnyTerm` the caller's terms, page size 20; ranking happens in `src/lib/similarity.ts`.
 - `createIssue`: apply `createHelpdeskIssue` with `returnEdits: "ALL"` and read the new key from the `addObject` edit; failures map to `validation` (with the parameter), `duplicate_key` (`ObjectAlreadyExists` or an invalid `issueId`), `permission` (403 or a failed submission criterion), or `unknown`.
 
-Every request carries the bearer token, `Accept: application/json`, and an 8-second timeout; a 401 is retried once with a fresh token. Response bodies never appear in errors, return values, or logs; the adapter logs only an event name, the HTTP status, and a category.
+Every request carries the bearer token, `Accept: application/json`, and an 8-second timeout; a 401 forces a token refresh and is retried once with the new token (a refresh that fails is `unauthorized`, with no retry). The token exchange itself is bounded by a 10-second timeout so a stalled Multipass call cannot hold every tool. Response bodies never appear in errors, return values, or logs; the adapter logs only an event name, the HTTP status, and a category.
+
+### U1 probe (`scripts/probe-foundry.ts`)
+
+`pnpm exec tsx scripts/probe-foundry.ts --refresh-test` runs, after the login and the read steps: `refresh rotation` (two forced refreshes, expecting a rotated refresh token), `current token still valid after rotation` (a read with the rotated grant), `old refresh token rejected after grace` (replays the first refresh token after `--grace-wait-seconds`, expecting 4xx), and finally `grant invalidated after reuse` (a read with the current token, expecting 401, since a reuse after the grace minute invalidates every access token from the grant; a 200 there is recorded as a finding).
 
 ### Ontology names override (`FOUNDRY_ONTOLOGY_NAMES`)
 

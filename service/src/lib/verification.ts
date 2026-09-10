@@ -74,6 +74,21 @@ export class Verifier {
     this.dummyHash = hashPin(opts.pepper, "__no_such_user__", "__no_such_pin__");
   }
 
+  /**
+   * The lookup, with this call's reservations given back if it throws: a Foundry
+   * outage is not a guess. Only this call's count is released, so a concurrent
+   * call's lock stands, and the error still reaches the route's failed envelope.
+   */
+  private async lookupOrRelease(callerKey: string, conversationId: string): Promise<UserRecord | null> {
+    try {
+      return await this.lookup(callerKey);
+    } catch (error) {
+      this.lockout.release(callerKey);
+      this.sessions.releaseFailure(conversationId);
+      throw error;
+    }
+  }
+
   async verify(input: VerifyInput): Promise<VerifyResult> {
     const session = this.sessions.getOrCreate(input.conversationId);
     if (!session) return { status: "not_verified" };
@@ -94,11 +109,11 @@ export class Verifier {
 
     // Reserve the attempt on both counters before the first await, so a burst of
     // concurrent calls cannot all pass the checks above and all be compared. A
-    // success below undoes both reservations.
+    // success below undoes both reservations, and so does a lookup that throws.
     this.lockout.recordFailure(callerKey);
     const reserved = this.sessions.recordFailure(conversationId);
 
-    const user = callerKey === UNKNOWN_CALLER ? null : await this.lookup(callerKey);
+    const user = callerKey === UNKNOWN_CALLER ? null : await this.lookupOrRelease(callerKey, conversationId);
     const digits = typeof input.digits === "string" ? input.digits : "";
     const expected = user?.pinHash ?? this.dummyHash;
     const candidate = hashPin(this.pepper, user?.userId ?? "__no_such_user__", digits);
@@ -106,7 +121,8 @@ export class Verifier {
     const success = user !== null && digits.length > 0 && matched;
 
     // The conversation may have been escalated while the lookup was in flight.
-    const escalatedMeanwhile = this.sessions.peek(conversationId)?.state === "escalated";
+    const live = this.sessions.peek(conversationId);
+    const escalatedMeanwhile = live?.state === "escalated";
 
     if (success && !escalatedMeanwhile) {
       this.sessions.bindVerified(conversationId, { userId: user.userId, fullName: user.fullName, siteId: user.siteId });
@@ -114,8 +130,11 @@ export class Verifier {
       return { status: "verified", userId: user.userId, attempts: 0 };
     }
 
-    return reserved.locked || escalatedMeanwhile
-      ? { status: "locked", attempts: reserved.attempts }
-      : { status: "retry", attempts: reserved.attempts };
+    // A concurrent call whose lookup threw may have given back its reservation
+    // meanwhile, lowering the count and lifting a lock ours had set; report the
+    // live state rather than the stale reservation.
+    const attempts = Math.min(reserved.attempts, live?.attempts ?? reserved.attempts);
+    const locked = reserved.locked && live?.state === "locked";
+    return locked || escalatedMeanwhile ? { status: "locked", attempts } : { status: "retry", attempts };
   }
 }

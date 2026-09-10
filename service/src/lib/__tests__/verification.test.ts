@@ -248,6 +248,98 @@ describe("Verifier", () => {
   });
 });
 
+describe("Verifier when the lookup throws (Foundry outage)", () => {
+  const OUTAGE = new Error("foundry timeout");
+
+  it("releases both reservations and rethrows: attempts stay 0, the caller id is not counted, and a correct PIN then verifies", async () => {
+    const h = harness({ maxFailures: 1 });
+    h.lookup.mockRejectedValueOnce(OUTAGE);
+    await expect(h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" })).rejects.toBe(OUTAGE);
+    expect(h.sessions.peek(CONV_A)?.attempts).toBe(0);
+    expect(h.sessions.peek(CONV_A)?.state).toBe("unverified");
+    expect(h.lockout.isLocked("+15551230001")).toBe(false);
+    expect(h.lockout.size).toBe(0);
+    const r = await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" });
+    expect(r).toEqual({ status: "verified", userId: "u_ada", attempts: 0 });
+  });
+
+  it("a throw on the second attempt after one real failure leaves attempts at 1 and the session unlocked", async () => {
+    const h = harness();
+    expect(await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "0000" })).toEqual({ status: "retry", attempts: 1 });
+    h.lookup.mockRejectedValueOnce(OUTAGE);
+    await expect(h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" })).rejects.toBe(OUTAGE);
+    expect(h.sessions.peek(CONV_A)?.attempts).toBe(1);
+    expect(h.sessions.peek(CONV_A)?.state).toBe("unverified");
+    const r = await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" });
+    expect(r).toEqual({ status: "verified", userId: "u_ada", attempts: 0 });
+  });
+
+  it("a concurrent burst of one throwing lookup and one wrong PIN counts exactly one attempt, whichever reserved first", async () => {
+    for (const throwFirst of [true, false]) {
+      const h = harness();
+      const gate = deferred<void>();
+      let calls = 0;
+      h.lookup.mockImplementation(async (phone: string) => {
+        const mine = ++calls;
+        await gate.promise;
+        if ((mine === 1) === throwFirst) throw OUTAGE;
+        return USERS[phone] ?? null;
+      });
+      const a = h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "0000" });
+      const b = h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "0000" });
+      // Both reservations are in place before either lookup resolves.
+      expect(h.sessions.peek(CONV_A)?.state).toBe("locked");
+      gate.resolve();
+      const settled = await Promise.allSettled([a, b]);
+      const rejected = settled.filter((s) => s.status === "rejected");
+      const fulfilled = settled.filter((s): s is PromiseFulfilledResult<Awaited<typeof a>> => s.status === "fulfilled");
+      expect(rejected).toHaveLength(1);
+      expect(fulfilled).toHaveLength(1);
+      expect(fulfilled[0]!.value.status).toBe("retry");
+      expect(h.sessions.peek(CONV_A)?.attempts).toBe(1);
+      expect(h.sessions.peek(CONV_A)?.state).toBe("unverified");
+      expect(h.lockout.isLocked("+15551230001")).toBe(false);
+    }
+  });
+
+  it("a throw never counts toward the caller id lockout: five real failures plus a throw do not lock, the sixth real failure does", async () => {
+    const h = harness({ maxFailures: 6 });
+    for (let i = 0; i < 5; i++) {
+      await h.verifier.verify({ conversationId: `conv_k${i}k${i}k${i}k${i}k${i}`, callerId: "+15551230001", digits: "0000" });
+    }
+    h.lookup.mockRejectedValueOnce(OUTAGE);
+    await expect(h.verifier.verify({ conversationId: "conv_llllllllll", callerId: "+15551230001", digits: "0000" })).rejects.toBe(OUTAGE);
+    expect(h.lockout.isLocked("+15551230001")).toBe(false);
+    await h.verifier.verify({ conversationId: "conv_llllllllll", callerId: "+15551230001", digits: "0000" });
+    expect(h.lockout.isLocked("+15551230001")).toBe(true);
+  });
+
+  it("a throw never lifts a lock the caller id lockout set outright on the conversation", async () => {
+    const h = harness({ maxFailures: 2 });
+    const gate = deferred<void>();
+    let calls = 0;
+    h.lookup.mockImplementation(async (phone: string) => {
+      if (++calls === 1) {
+        await gate.promise;
+        throw OUTAGE;
+      }
+      return USERS[phone] ?? null;
+    });
+    // In flight for CONV_A: one caller id failure reserved. A second conversation's real
+    // failure engages the caller id lockout, and CONV_A's next call is locked outright.
+    const inFlight = h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "0000" });
+    expect(await h.verifier.verify({ conversationId: CONV_B, callerId: "+15551230001", digits: "0000" })).toEqual({ status: "retry", attempts: 1 });
+    expect(h.lockout.isLocked("+15551230001")).toBe(true);
+    expect((await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" })).status).toBe("locked");
+    gate.resolve();
+    await expect(inFlight).rejects.toBe(OUTAGE);
+    // The outage's own count is given back on both counters, but the outright lock stands.
+    expect(h.lockout.isLocked("+15551230001")).toBe(false);
+    expect(h.sessions.peek(CONV_A)).toMatchObject({ attempts: 0, state: "locked" });
+    expect((await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" })).status).toBe("locked");
+  });
+});
+
 describe("normalizePhone", () => {
   it("keeps a leading plus and strips formatting", () => {
     expect(normalizePhone("+1 (555) 123-0001")).toBe("+15551230001");

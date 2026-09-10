@@ -43,5 +43,11 @@ export interface FoundryAuth {
   completeLogin(code: string, state: string): Promise<void>;
   /** A currently valid access token, refreshing first when close to expiry. */
   getToken(): Promise<string>;
+  /**
+   * Refreshes now regardless of expiry, sharing any in-flight exchange. The
+   * adapter calls it after a 401 so the single retry carries a new token
+   * rather than the cached one getToken() would hand back again.
+   */
+  forceRefresh(): Promise<void>;
   status(): FoundryAuthStatusReport;
 }

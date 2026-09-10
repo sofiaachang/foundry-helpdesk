@@ -70,14 +70,20 @@ describe("NotReadyFoundryAdapter", () => {
     await expect(adapter.getIssue(SESSION, "4127")).rejects.toBeInstanceOf(FoundryNotReadyError);
   });
 
-  it("keeps the token provider shape the generated client will use", async () => {
+  it("keeps the token provider shape the adapter takes: getToken per request, refresh after a 401", async () => {
+    let refreshes = 0;
     const provider = tokenProvider({
       beginLogin: () => "",
       completeLogin: async () => {},
       getToken: async () => "tok",
+      forceRefresh: async () => {
+        refreshes += 1;
+      },
       status: () => ({ status: "ok", expiresAt: null }),
     });
-    await expect(provider()).resolves.toBe("tok");
+    await expect(provider.getToken()).resolves.toBe("tok");
+    await provider.refresh();
+    expect(refreshes).toBe(1);
   });
 });
 
@@ -86,6 +92,7 @@ describe("createFoundryAdapter", () => {
     beginLogin: () => "",
     completeLogin: async () => {},
     getToken: async () => "tok",
+    forceRefresh: async () => {},
     status: () => ({ status: "ok" as const, expiresAt: null }),
   };
   const foundry = { stackUrl: "https://zap.example", clientId: "c", ontologyRid: "ri.ontology.main.ontology.x", redirectUrl: "http://localhost/cb", loginToken: "l" };

@@ -1,9 +1,11 @@
 // One-time Foundry login for the delegated user identity (plan KTD3). These
 // routes live outside /tools/, so the shared-secret hook does not cover them;
-// /auth/start is instead gated by FOUNDRY_LOGIN_TOKEN presented as ?t=, and
-// the same value rides in the OAuth state so the auth holder can verify it on
-// /auth/callback. No response and no log line here ever carries a code, a
-// token, or an OAuth error_description.
+// /auth/start is instead gated by FOUNDRY_LOGIN_TOKEN presented as ?t=. The
+// callback derives nothing from that token: it is bound to the started login
+// only by the opaque random OAuth state, which the auth holder compares whole
+// against its server-side copy, so the login token never appears in the
+// authorize URL or the callback URL. No response and no log line here ever
+// carries a code, a token, or an OAuth error_description.
 
 import type { FastifyInstance, FastifyReply } from "fastify";
 import { constantTimeEqual } from "../lib/compare.js";

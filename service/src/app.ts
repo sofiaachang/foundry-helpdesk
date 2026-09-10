@@ -4,6 +4,8 @@
 import Fastify, { type FastifyBaseLogger, type FastifyError, type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
 import { constantTimeEqual } from "./lib/compare.js";
+import type { FoundryAuth } from "./lib/foundry-auth-types.js";
+import { requestLogUrl } from "./observability/log.js";
 import { healthRoutes } from "./routes/health.js";
 import { defaultHandlers, toolRoutes, type ToolHandlers } from "./routes/tools.js";
 
@@ -15,6 +17,8 @@ export interface BuildAppOptions {
   handlers?: ToolHandlers;
   /** Registered by U15; kept optional so U6 can be tested alone. */
   extraRoutes?: Array<(app: FastifyInstance) => Promise<void>>;
+  /** The delegated-user auth holder, so /health can report the login status; absent for the fake adapter. */
+  auth?: FoundryAuth;
 }
 
 const SECRET_HEADER = "x-helpdesk-secret";
@@ -47,25 +51,25 @@ export async function buildApp(opts: BuildAppOptions): Promise<App> {
     const presented = request.headers[SECRET_HEADER];
     const value = Array.isArray(presented) ? presented[0] : presented;
     if (!value || !secretMatches(value, opts.config.sharedSecrets)) {
-      request.log.warn({ event: "auth_rejected", url: request.url });
+      request.log.warn({ event: "auth_rejected", url: requestLogUrl(request.url) });
       return reply.code(401).send({ error: "unauthorized" });
     }
   });
 
-  await app.register(healthRoutes);
-  await app.register(toolRoutes, { handlers: opts.handlers ?? defaultHandlers() });
-  for (const register of opts.extraRoutes ?? []) {
-    await app.register(register);
-  }
-
+  // Both handlers are set BEFORE any plugin registers: Fastify encapsulation
+  // snapshots the parent's handlers when a plugin is created, so a handler set
+  // afterwards never applies inside /tools/* or the extra routes, and a thrown
+  // handler error would answer HTTP 500 with the raw message.
+  //
   // Any thrown error becomes the contract's failed envelope. Nothing from the
-  // error object reaches the agent.
+  // error object reaches the agent, and the log line carries the path only
+  // (never the query, which on /auth/callback holds the code and state).
   app.setErrorHandler((error: FastifyError, request, reply) => {
     const status = error.statusCode;
     if (status === 413 || status === 415 || status === 400) {
       return reply.code(status).send({ error: status === 413 ? "body too large" : status === 415 ? "unsupported media type" : "bad request" });
     }
-    request.log.error({ event: "unhandled_error", url: request.url, name: error.name });
+    request.log.error({ event: "unhandled_error", url: requestLogUrl(request.url), name: error.name });
     return reply.code(200).send({
       status: "failed",
       speech: "I couldn't complete that. I can have a person call you back.",
@@ -73,6 +77,16 @@ export async function buildApp(opts: BuildAppOptions): Promise<App> {
       data: {},
     });
   });
+
+  // Fastify's default not-found handler logs the full URL, query included; a
+  // mistyped /auth/callback/ would put the code and state in the log.
+  app.setNotFoundHandler((_request, reply) => reply.code(404).send({ error: "not found" }));
+
+  await app.register(healthRoutes, { adapter: opts.config.adapter, ...(opts.auth === undefined ? {} : { auth: opts.auth }) });
+  await app.register(toolRoutes, { handlers: opts.handlers ?? defaultHandlers() });
+  for (const register of opts.extraRoutes ?? []) {
+    await app.register(register);
+  }
 
   return app;
 }

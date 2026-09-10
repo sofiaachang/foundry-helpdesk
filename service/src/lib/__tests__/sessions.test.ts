@@ -100,6 +100,47 @@ describe("SessionStore", () => {
     expect(store.peek("conv_1234567890")?.state).toBe("locked");
   });
 
+  it("releaseFailure gives back one attempt and lifts a lock the remaining count no longer justifies", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    expect(store.recordFailure("conv_1234567890")).toEqual({ attempts: 2, locked: true });
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 1, state: "unverified" });
+  });
+
+  it("releaseFailure keeps a lock the remaining count still justifies", () => {
+    const store = new SessionStore({ clock: clockAt().now, maxAttempts: 2 });
+    for (let i = 0; i < 3; i++) store.recordFailure("conv_1234567890");
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 2, state: "locked" });
+  });
+
+  it("releaseFailure never lifts a lock set outright by lock()", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    store.lock("conv_1234567890");
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 0, state: "locked" });
+  });
+
+  it("releaseFailure is a no-op on a verified session and never creates one", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    store.bindVerified("conv_1234567890", { userId: "u1", fullName: "Ada Lovelace", siteId: "s1" });
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 0, state: "verified" });
+    store.releaseFailure("conv_0000000000");
+    expect(store.peek("conv_0000000000")).toBeNull();
+    expect(store.size).toBe(1);
+  });
+
+  it("releaseFailure never drops attempts below zero", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.getOrCreate("conv_1234567890");
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")?.attempts).toBe(0);
+  });
+
   it("sweeps expired sessions once the map reaches 256 entries, so size tracks the live count", () => {
     const clock = clockAt();
     const store = new SessionStore({ clock: clock.now, ttlMs: 600_000 });
@@ -149,6 +190,32 @@ describe("CallerLockout", () => {
     lockout.reset("+15551230001");
     lockout.recordFailure("+15551230001");
     expect(lockout.isLocked("+15551230001")).toBe(false);
+  });
+
+  it("release decrements a number's count and unlocks it; a release to zero deletes the bucket", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 2, windowMs: 900_000 });
+    lockout.recordFailure("+15551230001");
+    lockout.recordFailure("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(true);
+    lockout.release("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(false);
+    expect(lockout.size).toBe(1);
+    lockout.release("+15551230001");
+    expect(lockout.size).toBe(0);
+  });
+
+  it("release on an unknown or expired number is a no-op", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 2, windowMs: 900_000 });
+    lockout.release("+15551230001");
+    expect(lockout.size).toBe(0);
+    lockout.recordFailure("+15551230002");
+    clock.advance(900_000);
+    lockout.release("+15551230002");
+    expect(lockout.size).toBe(0);
+    lockout.recordFailure("+15551230002");
+    expect(lockout.isLocked("+15551230002")).toBe(false);
   });
 
   it("sweeps expired buckets once the map reaches 256 entries, so size tracks the live count", () => {

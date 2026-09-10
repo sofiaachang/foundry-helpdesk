@@ -21,6 +21,7 @@ interface Call {
   method: string;
   contentType: string | undefined;
   form: URLSearchParams;
+  signal: AbortSignal | null | undefined;
 }
 
 type Handler = (call: Call) => Response | Promise<Response>;
@@ -34,6 +35,7 @@ function fakeFetch(handler: Handler): { calls: Call[]; fetch: typeof fetch } {
       method: init?.method ?? "GET",
       contentType: headers.get("content-type") ?? undefined,
       form: new URLSearchParams(typeof init?.body === "string" ? init.body : ""),
+      signal: init?.signal,
     };
     calls.push(call);
     return handler(call);
@@ -63,16 +65,16 @@ function b64url(buf: Buffer): string {
   return buf.toString("base64url");
 }
 
-function build(handler: Handler, opts: { now?: () => number; random?: (n: number) => Buffer } = {}) {
+function build(handler: Handler, opts: { now?: () => number; random?: (n: number) => Buffer; timeoutMs?: number } = {}) {
   const ff = fakeFetch(handler);
   const auth = new FoundryDelegatedAuth({
     stackUrl: STACK,
     clientId: CLIENT_ID,
     redirectUrl: REDIRECT,
-    loginToken: LOGIN_TOKEN,
     fetch: ff.fetch,
     clock: opts.now ?? (() => 1_000_000_000),
     randomBytes: opts.random ?? fixedRandom(7),
+    ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
   });
   return { auth, calls: ff.calls };
 }
@@ -85,7 +87,7 @@ async function login(auth: FoundryDelegatedAuth): Promise<void> {
 }
 
 describe("FoundryDelegatedAuth.beginLogin", () => {
-  it("builds the authorize URL with PKCE S256, offline_access, redirect, and the login token in state", () => {
+  it("builds the authorize URL with PKCE S256, offline_access, redirect, and an opaque random state", () => {
     const { auth } = build(() => json({}), { random: fixedRandom(7) });
     const url = new URL(auth.beginLogin());
 
@@ -110,9 +112,23 @@ describe("FoundryDelegatedAuth.beginLogin", () => {
     expect(p.get("code_challenge")).toBe(expectedChallenge);
     expect(p.get("code_challenge")).not.toContain("=");
 
+    // The state is randomness only: it must never carry the login token,
+    // because it rides in the authorize URL and the callback URL (Foundry's
+    // logs, browser history, the platform edge).
     const state = p.get("state") ?? "";
-    expect(state.startsWith(`${LOGIN_TOKEN}.`)).toBe(true);
-    expect(state.length).toBeGreaterThan(LOGIN_TOKEN.length + 1);
+    expect(state).toBe(b64url(Buffer.alloc(32, 7)));
+    expect(state).not.toContain(LOGIN_TOKEN);
+    expect(state).not.toContain(".");
+    expect(url.toString()).not.toContain(LOGIN_TOKEN);
+  });
+
+  it("issues a different state per login and distinct from the verifier material", () => {
+    let n = 0;
+    const { auth } = build(() => json({}), { random: (size) => Buffer.alloc(size, (n += 1)) });
+    const first = new URL(auth.beginLogin()).searchParams.get("state");
+    const second = new URL(auth.beginLogin()).searchParams.get("state");
+    expect(first).not.toBe(second);
+    expect(first?.length).toBeGreaterThanOrEqual(43);
   });
 
   it("starts logged out", () => {
@@ -124,16 +140,17 @@ describe("FoundryDelegatedAuth.beginLogin", () => {
 describe("FoundryDelegatedAuth.completeLogin", () => {
   it("rejects a wrong state without calling the token endpoint", async () => {
     const { auth, calls } = build(() => json(tokenBody(ACCESS_1, REFRESH_1)));
-    auth.beginLogin();
-    await expect(auth.completeLogin("code-xyz", `${LOGIN_TOKEN}.wrong`)).rejects.toMatchObject({ category: "state_mismatch" });
-    await expect(auth.completeLogin("code-xyz", "not-even-the-token.abc")).rejects.toMatchObject({ category: "state_mismatch" });
+    const state = new URL(auth.beginLogin()).searchParams.get("state")!;
+    await expect(auth.completeLogin("code-xyz", `${state}x`)).rejects.toMatchObject({ category: "state_mismatch" });
+    await expect(auth.completeLogin("code-xyz", state.slice(1))).rejects.toMatchObject({ category: "state_mismatch" });
+    await expect(auth.completeLogin("code-xyz", `${LOGIN_TOKEN}.${state}`)).rejects.toMatchObject({ category: "state_mismatch" });
     expect(calls).toHaveLength(0);
     expect(auth.status().status).toBe("logged_out");
   });
 
   it("rejects a callback when no login was begun", async () => {
     const { auth, calls } = build(() => json(tokenBody(ACCESS_1, REFRESH_1)));
-    await expect(auth.completeLogin("code-xyz", `${LOGIN_TOKEN}.abc`)).rejects.toMatchObject({ category: "state_mismatch" });
+    await expect(auth.completeLogin("code-xyz", b64url(Buffer.alloc(32, 7)))).rejects.toMatchObject({ category: "state_mismatch" });
     expect(calls).toHaveLength(0);
   });
 
@@ -302,6 +319,136 @@ describe("FoundryDelegatedAuth.getToken", () => {
     await expect(auth.getToken()).resolves.toBe(ACCESS_2);
     const refreshes = calls.filter((c) => c.form.get("grant_type") === "refresh_token");
     expect(refreshes.map((c) => c.form.get("refresh_token"))).toEqual([REFRESH_1, REFRESH_1]);
+  });
+
+  it("passes an abort signal to the token endpoint and maps a stalled exchange to network, keeping the grant", async () => {
+    let now = 1_000_000_000;
+    let signal: AbortSignal | null | undefined;
+    const { auth, calls } = build(
+      (call) => {
+        if (call.form.get("grant_type") !== "refresh_token") return json(tokenBody(ACCESS_1, REFRESH_1, 3600));
+        // Never answers; only the signal can end the call, like a real fetch.
+        signal = call.signal;
+        return new Promise<Response>((_resolve, reject) => {
+          if (!signal) return;
+          signal.addEventListener("abort", () => reject(signal!.reason), { once: true });
+        });
+      },
+      { now: () => now, timeoutMs: 20 },
+    );
+    await login(auth);
+    now += 3600_000 + 1;
+
+    const err = await auth.getToken().catch((e: unknown) => e);
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal!.aborted).toBe(true);
+    expect(err).toBeInstanceOf(FoundryAuthError);
+    expect(err).toMatchObject({ category: "network", httpStatus: undefined });
+    expect(auth.status().status).toBe("expired");
+    expect(calls.filter((c) => c.form.get("grant_type") === "refresh_token")).toHaveLength(1);
+  });
+
+  it("keeps the grant on a 429 from the token endpoint so the next call can retry", async () => {
+    let now = 1_000_000_000;
+    let limited = true;
+    const { auth, calls } = build(
+      (call) => {
+        if (call.form.get("grant_type") === "refresh_token") {
+          if (limited) return json({ error: "rate_limited" }, 429);
+          return json(tokenBody(ACCESS_2, REFRESH_2, 3600));
+        }
+        return json(tokenBody(ACCESS_1, REFRESH_1, 3600));
+      },
+      { now: () => now },
+    );
+    await login(auth);
+    now += 3600_000 + 1;
+
+    await expect(auth.getToken()).rejects.toMatchObject({ category: "refresh_failed", httpStatus: 429 });
+    expect(auth.status().status).toBe("expired");
+
+    limited = false;
+    await expect(auth.getToken()).resolves.toBe(ACCESS_2);
+    const refreshes = calls.filter((c) => c.form.get("grant_type") === "refresh_token");
+    expect(refreshes.map((c) => c.form.get("refresh_token"))).toEqual([REFRESH_1, REFRESH_1]);
+  });
+
+  it("moves to logged_out only on 400, 401, and 403 from the token endpoint", async () => {
+    for (const status of [400, 401, 403]) {
+      let now = 1_000_000_000;
+      const { auth } = build(
+        (call) => (call.form.get("grant_type") === "refresh_token" ? json({ error: "invalid_grant" }, status) : json(tokenBody(ACCESS_1, REFRESH_1, 3600))),
+        { now: () => now },
+      );
+      await login(auth);
+      now += 3600_000 + 1;
+      await expect(auth.getToken()).rejects.toMatchObject({ category: "refresh_failed", httpStatus: status });
+      expect(auth.status().status).toBe("logged_out");
+    }
+    for (const status of [404, 408, 429, 503]) {
+      let now = 1_000_000_000;
+      const { auth } = build(
+        (call) => (call.form.get("grant_type") === "refresh_token" ? json({ error: "whatever" }, status) : json(tokenBody(ACCESS_1, REFRESH_1, 3600))),
+        { now: () => now },
+      );
+      await login(auth);
+      now += 3600_000 + 1;
+      await expect(auth.getToken()).rejects.toMatchObject({ category: "refresh_failed", httpStatus: status });
+      expect(auth.status().status).toBe("expired");
+    }
+  });
+
+  it("does not discard a login that completed while a refresh was in flight, even when that refresh then fails 400", async () => {
+    let now = 1_000_000_000;
+    const gate = deferred<Response>();
+    const { auth } = build(
+      async (call) => {
+        if (call.form.get("grant_type") === "refresh_token") return gate.promise;
+        // First login yields the first token set, the re-login a second one.
+        return json(tokenBody(call.form.get("code") === "code-two" ? ACCESS_2 : ACCESS_1, call.form.get("code") === "code-two" ? REFRESH_2 : REFRESH_1, 3600));
+      },
+      { now: () => now },
+    );
+    await login(auth);
+    now += 3600_000 + 1;
+
+    const pendingRefresh = auth.getToken();
+    await new Promise((r) => setImmediate(r));
+
+    // A human re-logs in while the refresh is stuck.
+    const state = new URL(auth.beginLogin()).searchParams.get("state")!;
+    await auth.completeLogin("code-two", state);
+    expect(auth.status().status).toBe("ok");
+
+    gate.resolve(json({ error: "invalid_grant" }, 400));
+    await expect(pendingRefresh).rejects.toMatchObject({ category: "refresh_failed", httpStatus: 400 });
+
+    // The new login survives the old grant's failure.
+    expect(auth.status().status).toBe("ok");
+    await expect(auth.getToken()).resolves.toBe(ACCESS_2);
+  });
+
+  it("does not let a refresh that succeeds late overwrite a login that completed meanwhile", async () => {
+    let now = 1_000_000_000;
+    const gate = deferred<Response>();
+    const { auth } = build(
+      async (call) => {
+        if (call.form.get("grant_type") === "refresh_token") return gate.promise;
+        return json(tokenBody(call.form.get("code") === "code-two" ? ACCESS_2 : ACCESS_1, call.form.get("code") === "code-two" ? REFRESH_2 : REFRESH_1, 3600));
+      },
+      { now: () => now },
+    );
+    await login(auth);
+    now += 3600_000 + 1;
+    const pendingRefresh = auth.getToken();
+    await new Promise((r) => setImmediate(r));
+
+    const state = new URL(auth.beginLogin()).searchParams.get("state")!;
+    await auth.completeLogin("code-two", state);
+
+    gate.resolve(json(tokenBody("access-stale-SECRET", "refresh-stale-SECRET", 3600)));
+    await expect(pendingRefresh).resolves.toBe(ACCESS_2);
+    await expect(auth.getToken()).resolves.toBe(ACCESS_2);
   });
 
   it("maps a thrown fetch to category network with no status", async () => {

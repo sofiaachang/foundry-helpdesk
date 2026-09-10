@@ -34,6 +34,7 @@ class FakeAuth implements FoundryAuth {
   async getToken(): Promise<string> {
     return this.accessToken;
   }
+  async forceRefresh(): Promise<void> {}
   status(): FoundryAuthStatusReport {
     return this.report;
   }

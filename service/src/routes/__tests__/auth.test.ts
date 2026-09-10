@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp, type App } from "../../app.js";
+import type { FoundryAuth, FoundryAuthStatusReport } from "../../lib/foundry-auth-types.js";
 import { testConfig } from "../../test-support/config.js";
 import { CapturingLogger } from "../../test-support/logger.js";
 
@@ -53,10 +54,10 @@ describe("shared-secret gate", () => {
     expect(res.statusCode).not.toBe(401);
   });
 
-  it("serves the health route without a secret", async () => {
+  it("serves the health route without a secret, naming the adapter and n/a auth when no auth holder is wired", async () => {
     const res = await app.inject({ method: "GET", url: "/health" });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ ok: true });
+    expect(res.json()).toEqual({ ok: true, adapter: "fake", auth: "n/a" });
   });
 
   it("rejects a body over 16 KB on tool routes", async () => {
@@ -87,5 +88,40 @@ describe("shared-secret gate", () => {
       payload: { conversation_id: "conv_1234567890", digits: "9876" },
     });
     expect(logs.text()).not.toContain("9876");
+  });
+});
+
+describe("health route with an auth holder", () => {
+  let app: App | undefined;
+
+  afterEach(async () => {
+    await app?.close();
+  });
+
+  function stubAuth(report: FoundryAuthStatusReport): FoundryAuth {
+    return {
+      beginLogin: () => "",
+      completeLogin: async () => {},
+      getToken: async () => "access-token-SECRET",
+      forceRefresh: async () => {},
+      status: () => report,
+    };
+  }
+
+  it("reports the login status for the not-ready and foundry adapters without any token material", async () => {
+    for (const [status, expiresAt] of [
+      ["logged_out", null],
+      ["ok", "2026-09-09T12:00:00.000Z"],
+      ["expired", "2026-09-09T11:00:00.000Z"],
+    ] as const) {
+      app = await buildApp({ config: testConfig({ adapter: "not-ready" }), logger: new CapturingLogger() as never, auth: stubAuth({ status, expiresAt }) });
+      const res = await app.inject({ method: "GET", url: "/health" });
+      expect(res.statusCode).toBe(200);
+      expect(res.json()).toEqual({ ok: true, adapter: "not-ready", auth: status });
+      expect(res.body).not.toContain("SECRET");
+      expect(res.body).not.toContain("2026-09-09");
+      await app.close();
+      app = undefined;
+    }
   });
 });

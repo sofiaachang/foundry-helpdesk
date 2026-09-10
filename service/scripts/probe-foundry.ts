@@ -6,6 +6,12 @@
 //     pnpm --dir service exec tsx scripts/probe-foundry.ts [--object-type T --pk K] \
 //     [--action A --params '{…}'] [--refresh-test [--grace-wait-seconds 75]]
 //
+// With --refresh-test the steps after the reads are, in order: refresh
+// rotation, current token still valid after rotation, old refresh token
+// rejected after grace (waits --grace-wait-seconds, then replays the first
+// refresh token), and grant invalidated after reuse (expects 401; a 200 is
+// reported as a finding because reuse detection should have fired).
+//
 // Runs through tsx (the same runner as `pnpm dev`): this script imports
 // src/foundry/auth.ts, whose internal imports use the `.js` suffix that tsc
 // emits, and Node's native type stripping does not rewrite those. Pure parts
@@ -14,7 +20,6 @@
 // is redacted and capped by the lib. Findings go into ontology/README.md.
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { randomBytes } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { FoundryDelegatedAuth } from "../src/foundry/auth.ts";
 import { FoundryAuthError } from "../src/lib/foundry-auth-types.ts";
@@ -65,7 +70,6 @@ const auth = new FoundryDelegatedAuth({
   stackUrl: base,
   clientId,
   redirectUrl,
-  loginToken: randomBytes(18).toString("base64url"),
   fetch: recordingFetch,
 });
 
@@ -218,6 +222,15 @@ async function main(): Promise<void> {
     };
   });
 
+  // Must precede the deliberate reuse below: once the old refresh token is
+  // replayed past the grace minute, the whole grant is invalidated and this
+  // read would 401 for the documented reason, not because rotation failed.
+  await step("current token still valid after rotation", async () => {
+    if (!args.refreshTest) return { status: "skipped" };
+    const r = await foundry("GET", ontologyPath);
+    return r.status === 200 ? { status: "ok", detail: { status: r.status } } : { status: "failed", detail: summariseError(r.status, r.body) };
+  });
+
   await step("old refresh token rejected after grace", async () => {
     if (!args.refreshTest) return { status: "skipped", detail: { reason: "pass --refresh-test" } };
     const old = sentRefreshTokens[0];
@@ -240,10 +253,16 @@ async function main(): Promise<void> {
     return { status: rejected ? "ok" : "failed", detail: { status: response.status, error: typeof error === "string" ? error : null } };
   });
 
-  await step("current token still valid after rotation", async () => {
+  // Runs last on purpose: the reuse above is meant to trip Foundry's reuse
+  // detection, which invalidates every access token created from the grant,
+  // so the cached token is expected to be refused now. A 200 means reuse
+  // detection did not fire, which is itself a U1 finding to record.
+  await step("grant invalidated after reuse", async () => {
     if (!args.refreshTest) return { status: "skipped" };
     const r = await foundry("GET", ontologyPath);
-    return r.status === 200 ? { status: "ok", detail: { status: r.status } } : { status: "failed", detail: summariseError(r.status, r.body) };
+    if (r.status === 401) return { status: "ok", detail: { status: r.status, invalidated: true } };
+    if (r.status === 200) return { status: "failed", detail: { status: r.status, invalidated: false, finding: "reuse detection did not invalidate the grant" } };
+    return { status: "failed", detail: summariseError(r.status, r.body) };
   });
 }
 

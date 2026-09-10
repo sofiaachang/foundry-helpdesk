@@ -27,7 +27,7 @@ export interface Config {
     ontologyRid: string;
     /** Must match a redirect URL registered on the app. */
     redirectUrl: string;
-    /** Per-deploy random value that guards /auth/start and is echoed in the OAuth state. */
+    /** Per-deploy random value that guards /auth/start. The OAuth state is random and opaque; nothing derives from this token. */
     loginToken: string;
   };
   /** Object, property, link, and action api names; FOUNDRY_ONTOLOGY_NAMES overrides the ERD defaults. */

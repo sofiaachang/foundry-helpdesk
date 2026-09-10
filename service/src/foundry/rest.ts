@@ -23,10 +23,12 @@
 // one extra row and removing the input issue in the service.
 //
 // Every request carries the bearer token, Accept: application/json, and an
-// AbortSignal.timeout; a 401 is retried once with a fresh token. Nothing here
+// AbortSignal.timeout; a 401 forces a token refresh and is retried once with
+// the new token (a failed refresh is `unauthorized` with no retry). Nothing here
 // puts a response body into an error, a return value, or a log line: the
 // logger receives only an event name, the HTTP status, and a category.
 
+import { FoundryAuthError } from "../lib/foundry-auth-types.js";
 import { asRecord } from "../lib/types.js";
 import type { IssueStatus } from "../lib/types.js";
 import type { SimilarCandidate } from "../lib/similarity.js";
@@ -70,11 +72,21 @@ export interface RestLogger {
   warn(fields: Record<string, unknown>, message?: string): void;
 }
 
+/**
+ * What the adapter needs from the auth holder: a token per request, and a way
+ * to force a new one after a 401 (getToken alone returns the cached token
+ * until it is within its refresh window).
+ */
+export interface TokenSource {
+  getToken(): Promise<string>;
+  refresh(): Promise<void>;
+}
+
 export interface RestFoundryAdapterOptions {
   stackUrl: string;
   /** Ontology RID or api name; goes into the path. */
   ontology: string;
-  getToken: () => Promise<string>;
+  tokens: TokenSource;
   logger: RestLogger;
   names?: OntologyNames;
   fetch?: typeof fetch;
@@ -91,8 +103,9 @@ interface Reply {
 
 const eq = (field: string, value: string): Filter => ({ type: "eq", field, value });
 const inList = (field: string, value: string[]): Filter => ({ type: "in", field, value });
-const and = (...queries: Filter[]): Filter => ({ type: "and", queries });
-const or = (...queries: Filter[]): Filter => ({ type: "or", queries });
+// AndQueryV2/OrQueryV2 carry their children under `value`, like every other SearchJsonQueryV2 node.
+const and = (...queries: Filter[]): Filter => ({ type: "and", value: queries });
+const or = (...queries: Filter[]): Filter => ({ type: "or", value: queries });
 const containsAnyTerm = (field: string, value: string): Filter => ({ type: "containsAnyTerm", field, value });
 
 function str(record: Record<string, unknown> | null, key: string): string {
@@ -108,7 +121,7 @@ function rows(body: unknown): Record<string, unknown>[] {
 
 export class RestFoundryAdapter implements FoundryAdapter {
   private readonly ontologyPath: string;
-  private readonly getToken: () => Promise<string>;
+  private readonly tokens: TokenSource;
   private readonly logger: RestLogger;
   private readonly names: OntologyNames;
   private readonly fetchImpl: typeof fetch;
@@ -117,7 +130,7 @@ export class RestFoundryAdapter implements FoundryAdapter {
   constructor(opts: RestFoundryAdapterOptions) {
     const base = opts.stackUrl.replace(/\/+$/, "");
     this.ontologyPath = `${base}/api/v2/ontologies/${encodeURIComponent(opts.ontology)}`;
-    this.getToken = opts.getToken;
+    this.tokens = opts.tokens;
     this.logger = opts.logger;
     this.names = opts.names ?? DEFAULT_ONTOLOGY_NAMES;
     this.fetchImpl = opts.fetch ?? fetch;
@@ -379,7 +392,8 @@ export class RestFoundryAdapter implements FoundryAdapter {
   }
 
   /**
-   * One authenticated request. Retries once with a fresh token on 401. Any
+   * One authenticated request. On a 401 it forces a token refresh and retries
+   * once with the new token; a refresh that fails is `unauthorized`. Any
    * non-2xx status not covered by `tolerate` (a status list, or "all" for the
    * Action, whose error bodies carry the validation block) throws
    * FoundryRequestError with the status only. The body is parsed as JSON and returned to the caller for
@@ -413,11 +427,19 @@ export class RestFoundryAdapter implements FoundryAdapter {
       }
     };
 
-    let response = await attempt(await this.getToken());
+    let response = await attempt(await this.tokens.getToken());
     if (response.status === 401) {
-      // The auth holder refreshes on expiry by itself; one retry covers a
-      // token revoked between its check and this request.
-      response = await attempt(await this.getToken());
+      // getToken() alone would hand back the same cached token until it is
+      // within its refresh window, so a token revoked mid-life must be
+      // refreshed explicitly before the single retry.
+      try {
+        await this.tokens.refresh();
+      } catch (error) {
+        if (!(error instanceof FoundryAuthError)) throw error;
+        this.logger.warn({ event: "foundry_request_failed", method, resource, status: 401, category: "unauthorized" });
+        throw new FoundryRequestError("unauthorized", 401);
+      }
+      response = await attempt(await this.tokens.getToken());
       if (response.status === 401) {
         this.logger.warn({ event: "foundry_request_failed", method, resource, status: 401, category: "unauthorized" });
         throw new FoundryRequestError("unauthorized", 401);

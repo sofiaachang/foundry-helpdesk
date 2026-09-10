@@ -32,6 +32,8 @@ interface Harness {
   drawn: string[];
   post: (tool: string, body: unknown) => Promise<Envelope>;
   verifyDemo: (conv?: string) => Promise<Envelope>;
+  /** Makes the next user lookup reject, standing in for a Foundry timeout during verify. */
+  throwNextLookup: (error: unknown) => void;
 }
 
 async function harness(opts: { adapter?: FakeFoundryAdapter; slowToolsMs?: number; ids?: string[] } = {}): Promise<Harness> {
@@ -40,7 +42,19 @@ async function harness(opts: { adapter?: FakeFoundryAdapter; slowToolsMs?: numbe
   const clock = () => Date.now();
   const sessions = new SessionStore({ clock });
   const lockout = new CallerLockout({ clock });
-  const verifier = new Verifier({ sessions, lockout, lookup: (p) => adapter.findUserByPhone(p), pepper: PEPPER });
+  let pendingLookupThrow: unknown = null;
+  const throwNextLookup = (error: unknown) => {
+    pendingLookupThrow = error;
+  };
+  const lookup = (p: string) => {
+    if (pendingLookupThrow !== null) {
+      const error = pendingLookupThrow;
+      pendingLookupThrow = null;
+      return Promise.reject(error);
+    }
+    return adapter.findUserByPhone(p);
+  };
+  const verifier = new Verifier({ sessions, lockout, lookup, pepper: PEPPER });
   const idempotency = new CreateIdempotency({ clock });
   const drawn: string[] = [];
   const queue = [...(opts.ids ?? ["5432", "5433", "5434"])];
@@ -65,7 +79,7 @@ async function harness(opts: { adapter?: FakeFoundryAdapter; slowToolsMs?: numbe
     return env;
   };
   const verifyDemo = (conv = CONV) => post("verify_caller", { conversation_id: conv, caller_id: DEMO_PHONE, digits: DEMO_PIN });
-  return { app, logs, adapter, drawn, post, verifyDemo };
+  return { app, logs, adapter, drawn, post, verifyDemo, throwNextLookup };
 }
 
 describe("tool routes", () => {
@@ -154,6 +168,35 @@ describe("tool routes", () => {
       expect(read.status).not.toBe("ok");
       expect(read.status).toBe("locked");
       expect(h.adapter.readCalls).toBe(0);
+    });
+
+    it("a lookup failure during verify spends no attempt: a wrong PIN then still gets the retry sentence and the correct PIN verifies", async () => {
+      h.throwNextLookup(new Error("foundry timeout"));
+      const blip = await h.app.inject({
+        method: "POST",
+        url: "/tools/verify_caller",
+        headers: { "x-helpdesk-secret": SECRET },
+        payload: { conversation_id: CONV, caller_id: DEMO_PHONE, digits: DEMO_PIN },
+      });
+      expect((blip.json() as Envelope).status).not.toBe("ok");
+      const wrong = await h.post("verify_caller", { conversation_id: CONV, caller_id: DEMO_PHONE, digits: "8642" });
+      expect(wrong.status).toBe("not_verified");
+      expect(wrong.speech).toBe(RETRY_SPEECH);
+      expect(wrong.data).toEqual({ verified: false, attempts: 1 });
+      const env = await h.verifyDemo();
+      expect(env.status).toBe("ok");
+      expect(env.data).toEqual({ verified: true });
+    });
+
+    // Blocked on app.ts: setErrorHandler is registered after toolRoutes, so Fastify's
+    // encapsulation leaves /tools/* on the default handler (HTTP 500, message leaked).
+    // Unskip once the error handler is set before the routes are registered.
+    it("a lookup failure during verify answers the failed envelope with nothing leaked", async () => {
+      h.throwNextLookup(new Error("secret-foundry-timeout-xyz"));
+      const blip = await h.post("verify_caller", { conversation_id: CONV, caller_id: DEMO_PHONE, digits: DEMO_PIN });
+      expect(blip.status).toBe("failed");
+      expect(blip.escalate).toBe(true);
+      expect(JSON.stringify(blip)).not.toContain("secret-foundry-timeout");
     });
 
     it("uses the same wording for an unknown number", async () => {

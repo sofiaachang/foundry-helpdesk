@@ -37,16 +37,23 @@ export const DEFAULT_SCOPES = ["api:use-ontologies-read", "api:use-ontologies-wr
 /** Refresh when the access token has less than this long to live. */
 export const REFRESH_WINDOW_MS = 60_000;
 
+/**
+ * Bound on one token-endpoint exchange. Every tool call joins the single
+ * in-flight refresh, so a Multipass request that connects and never answers
+ * would otherwise hold every tool for undici's default headers timeout.
+ */
+export const DEFAULT_TOKEN_TIMEOUT_MS = 10_000;
+
 export interface FoundryDelegatedAuthOptions {
   stackUrl: string;
   clientId: string;
   redirectUrl: string;
-  /** Echoed as the prefix of the OAuth state so the callback can verify the login token. */
-  loginToken: string;
   scopes?: readonly string[];
   fetch?: typeof fetch;
   clock?: () => number;
   randomBytes?: (n: number) => Buffer;
+  /** Abort a token-endpoint exchange after this long; defaults to DEFAULT_TOKEN_TIMEOUT_MS. */
+  timeoutMs?: number;
 }
 
 interface PendingLogin {
@@ -64,16 +71,23 @@ function b64url(buf: Buffer): string {
   return buf.toString("base64url");
 }
 
+/** Token-endpoint statuses that mean the grant itself is gone, not that the attempt should be retried. */
+const TERMINAL_REFRESH_STATUSES: ReadonlySet<number> = new Set([400, 401, 403]);
+
+function isTerminalRefreshStatus(status: number | undefined): boolean {
+  return status !== undefined && TERMINAL_REFRESH_STATUSES.has(status);
+}
+
 export class FoundryDelegatedAuth implements FoundryAuth {
   private readonly authorizeUrl: string;
   private readonly tokenUrl: string;
   private readonly clientId: string;
   private readonly redirectUrl: string;
-  private readonly loginToken: string;
   private readonly scope: string;
   private readonly fetchImpl: typeof fetch;
   private readonly clock: () => number;
   private readonly randomBytes: (n: number) => Buffer;
+  private readonly timeoutMs: number;
 
   private pending: PendingLogin | null = null;
   private tokens: TokenSet | null = null;
@@ -85,11 +99,11 @@ export class FoundryDelegatedAuth implements FoundryAuth {
     this.tokenUrl = `${base}/multipass/api/oauth2/token`;
     this.clientId = opts.clientId;
     this.redirectUrl = opts.redirectUrl;
-    this.loginToken = opts.loginToken;
     this.scope = (opts.scopes ?? DEFAULT_SCOPES).join(" ");
     this.fetchImpl = opts.fetch ?? fetch;
     this.clock = opts.clock ?? (() => Date.now());
     this.randomBytes = opts.randomBytes ?? nodeRandomBytes;
+    this.timeoutMs = opts.timeoutMs ?? DEFAULT_TOKEN_TIMEOUT_MS;
   }
 
   beginLogin(): string {
@@ -97,7 +111,12 @@ export class FoundryDelegatedAuth implements FoundryAuth {
     // doc requires and drawn only from its allowed alphabet.
     const verifier = b64url(this.randomBytes(32));
     const challenge = b64url(createHash("sha256").update(verifier).digest());
-    const state = `${this.loginToken}.${b64url(this.randomBytes(16))}`;
+    // The state is randomness only. It travels in the authorize URL and back
+    // in the callback URL, so it must carry no secret: the server-held copy
+    // (compared whole, in constant time, in completeLogin) is what binds the
+    // callback to this login. The login token that gates /auth/start stays
+    // out of every URL past that route.
+    const state = b64url(this.randomBytes(32));
     this.pending = { verifier, state };
 
     const url = new URL(this.authorizeUrl);
@@ -184,13 +203,20 @@ export class FoundryDelegatedAuth implements FoundryAuth {
     try {
       const next = await this.postToken(form, "refresh_failed");
       // Foundry rotates the refresh token; if a response ever omits it, keep
-      // the previous one rather than dropping to logged_out.
-      this.tokens = { ...next, refreshToken: next.refreshToken ?? current.refreshToken };
+      // the previous one rather than dropping to logged_out. Both writes below
+      // are guarded by identity on the token set this refresh started from: a
+      // login that completed while the exchange was in flight owns `tokens`
+      // now, and neither a late success nor a failure of the old grant may
+      // replace it.
+      if (this.tokens === current) {
+        this.tokens = { ...next, refreshToken: next.refreshToken ?? current.refreshToken };
+      }
     } catch (error) {
-      // 4xx from the token endpoint means the grant is gone (revoked, reused
-      // after the grace period, idle past 30 days, or otherwise rejected). A
-      // 5xx or a network failure leaves the grant intact for the next attempt.
-      if (error instanceof FoundryAuthError && error.httpStatus !== undefined && error.httpStatus >= 400 && error.httpStatus < 500) {
+      // 400/401/403 from the token endpoint means the grant is gone (revoked,
+      // reused after the grace period, idle past 30 days, or otherwise
+      // rejected). Any other status, including 429, and a network failure
+      // leave the grant intact for the next attempt.
+      if (error instanceof FoundryAuthError && isTerminalRefreshStatus(error.httpStatus) && this.tokens === current) {
         this.tokens = null;
       }
       throw error;
@@ -204,8 +230,12 @@ export class FoundryDelegatedAuth implements FoundryAuth {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded", accept: "application/json" },
         body: form.toString(),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
     } catch {
+      // A thrown fetch, including the TimeoutError/AbortError from the signal,
+      // is `network`: Foundry never answered, so the grant is kept for the
+      // next attempt.
       throw new FoundryAuthError("network");
     }
     if (!response.ok) throw new FoundryAuthError(failure, response.status);

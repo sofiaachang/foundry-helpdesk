@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_ONTOLOGY_NAMES, mergeOntologyNames, type OntologyNames } from "../../lib/ontology-names.js";
 import type { VerifiedSession } from "../../lib/tiers.js";
+import { FoundryAuthError } from "../../lib/foundry-auth-types.js";
 import { CapturingLogger } from "../../test-support/logger.js";
 import { FoundryRequestError, RestFoundryAdapter } from "../rest.js";
 
@@ -43,7 +44,10 @@ function on(method: string, path: string, respond: (call: Call) => Response | un
 const OPEN_STATUSES = ["open", "in_progress"];
 
 interface HarnessOptions {
+  /** Token handed out by getToken; advances to the next entry only when refresh() is called. */
   tokens?: string[];
+  /** Thrown by refresh() instead of advancing the token. */
+  refreshError?: Error;
   timeoutMs?: number;
   names?: OntologyNames;
 }
@@ -52,6 +56,8 @@ function harness(routes: Route[], opts: HarnessOptions = {}) {
   const calls: Call[] = [];
   const tokens = opts.tokens ?? ["tok-1"];
   let tokenCalls = 0;
+  let refreshCalls = 0;
+  let tokenIndex = 0;
   const fetchImpl: typeof fetch = async (input, init) => {
     const headers = new Headers(init?.headers);
     const call: Call = {
@@ -72,17 +78,23 @@ function harness(routes: Route[], opts: HarnessOptions = {}) {
   const adapter = new RestFoundryAdapter({
     stackUrl: STACK,
     ontology: ONTOLOGY,
-    getToken: async () => {
-      const t = tokens[Math.min(tokenCalls, tokens.length - 1)] ?? "";
-      tokenCalls += 1;
-      return t;
+    tokens: {
+      getToken: async () => {
+        tokenCalls += 1;
+        return tokens[Math.min(tokenIndex, tokens.length - 1)] ?? "";
+      },
+      refresh: async () => {
+        refreshCalls += 1;
+        if (opts.refreshError) throw opts.refreshError;
+        tokenIndex += 1;
+      },
     },
     fetch: fetchImpl,
     logger: logs as never,
     ...(opts.timeoutMs === undefined ? {} : { timeoutMs: opts.timeoutMs }),
     ...(opts.names === undefined ? {} : { names: opts.names }),
   });
-  return { adapter, calls, logs, tokenCalls: () => tokenCalls };
+  return { adapter, calls, logs, tokenCalls: () => tokenCalls, refreshCalls: () => refreshCalls };
 }
 
 const issueRow = (over: Record<string, unknown> = {}) => ({
@@ -116,9 +128,9 @@ describe("RestFoundryAdapter request plumbing", () => {
     expect(call.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("retries exactly once with a fresh token after a 401, then gives up", async () => {
+  it("retries exactly once after a 401, forcing a refresh so the retry carries a new token, then gives up", async () => {
     let attempts = 0;
-    const { adapter, calls, tokenCalls } = harness(
+    const { adapter, calls, tokenCalls, refreshCalls } = harness(
       [
         on("GET", "/objects/HelpdeskIssue/4127", () => {
           attempts += 1;
@@ -133,12 +145,33 @@ describe("RestFoundryAdapter request plumbing", () => {
     expect(calls[0]!.headers.authorization).toBe("Bearer t1");
     expect(calls[1]!.headers.authorization).toBe("Bearer t2");
     expect(tokenCalls()).toBeGreaterThanOrEqual(2);
+    expect(refreshCalls()).toBe(1);
 
     const twice = harness([on("GET", "/objects/HelpdeskIssue/4127", () => json(401, {}))], { tokens: ["t1", "t2"] });
     const err = await twice.adapter.getIssue(SESSION, "4127").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(FoundryRequestError);
     expect((err as FoundryRequestError).category).toBe("unauthorized");
     expect(twice.calls).toHaveLength(2);
+    expect(twice.refreshCalls()).toBe(1);
+    expect(twice.calls).toHaveLength(2);
+  });
+
+  it("does not retry the same token after a 401, and maps a refresh that fails to unauthorized", async () => {
+    const same = harness([on("GET", "/objects/HelpdeskIssue/4127", () => json(401, {}))], { tokens: ["t1"] });
+    await same.adapter.getIssue(SESSION, "4127").catch(() => undefined);
+    expect(same.refreshCalls()).toBe(1);
+
+    const failing = harness([on("GET", "/objects/HelpdeskIssue/4127", () => json(401, {}))], {
+      tokens: ["t1", "t2"],
+      refreshError: new FoundryAuthError("refresh_failed", 401),
+    });
+    const err = await failing.adapter.getIssue(SESSION, "4127").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(FoundryRequestError);
+    expect((err as FoundryRequestError).category).toBe("unauthorized");
+    expect((err as FoundryRequestError).httpStatus).toBe(401);
+    // No second request goes out with a token the refresh could not renew.
+    expect(failing.calls).toHaveLength(1);
+    expect(failing.logs.events("foundry_request_failed")[0]).toMatchObject({ status: 401, category: "unauthorized" });
   });
 
   it("never puts a response body into a thrown error or a log line", async () => {
@@ -240,7 +273,7 @@ describe("getIssue", () => {
 describe("listOpenIssuesForUser", () => {
   const where = {
     type: "and",
-    queries: [
+    value: [
       { type: "eq", field: "reportedByUserId", value: "u1" },
       { type: "in", field: "status", value: OPEN_STATUSES },
     ],
@@ -284,7 +317,7 @@ describe("listOpenIssuesForUser", () => {
 describe("getTeamQueueForIssue", () => {
   const queueWhere = {
     type: "and",
-    queries: [
+    value: [
       { type: "eq", field: "assignedTeamId", value: "net" },
       { type: "in", field: "status", value: OPEN_STATUSES },
     ],
@@ -350,7 +383,7 @@ describe("countOpenIssuesAtSite", () => {
       groupBy: [],
       where: {
         type: "and",
-        queries: [
+        value: [
           { type: "in", field: "reportedByUserId", value: ["u1", "u2"] },
           { type: "in", field: "status", value: OPEN_STATUSES },
         ],
@@ -381,11 +414,11 @@ describe("findResolvedIssuesMatching", () => {
     expect(calls[0]!.body).toEqual({
       where: {
         type: "and",
-        queries: [
+        value: [
           { type: "eq", field: "status", value: "resolved" },
           {
             type: "or",
-            queries: [
+            value: [
               { type: "containsAnyTerm", field: "title", value: "vpn tunnel drops" },
               { type: "containsAnyTerm", field: "description", value: "vpn tunnel drops" },
             ],

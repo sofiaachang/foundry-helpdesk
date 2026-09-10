@@ -55,6 +55,8 @@ export function isConversationId(value: unknown): value is string {
 
 export class SessionStore {
   private readonly sessions = new Map<string, Session>();
+  /** Sessions locked by `lock()` rather than by the attempt count; a release never lifts these. */
+  private readonly lockedOutright = new WeakSet<Session>();
   private readonly clock: Clock;
   private readonly ttlMs: number;
   private readonly maxAttempts: number;
@@ -106,10 +108,29 @@ export class SessionStore {
     return { attempts: session.attempts, locked: session.state === "locked" };
   }
 
+  /**
+   * Gives back one `recordFailure` reservation after the lookup failed before
+   * any PIN was compared: an outage is not a guess. Only this call's count is
+   * undone; a lock the remaining count still justifies stands, as does a lock
+   * set outright by `lock()`, and a session verified meanwhile (attempts
+   * already zero) is left alone.
+   */
+  releaseFailure(conversationId: string): void {
+    const session = this.peek(conversationId);
+    if (!session || session.state === "verified" || session.attempts === 0) return;
+    session.attempts -= 1;
+    if (session.state === "locked" && session.attempts < this.maxAttempts && !this.lockedOutright.has(session)) {
+      session.state = "unverified";
+    }
+  }
+
   /** Locks a session outright, used when the caller id lockout window is active. */
   lock(conversationId: string): Session | null {
     const session = this.getOrCreate(conversationId);
-    if (session) session.state = "locked";
+    if (session) {
+      session.state = "locked";
+      this.lockedOutright.add(session);
+    }
     return session;
   }
 
@@ -194,6 +215,14 @@ export class CallerLockout {
       sweepExpired(this.buckets, (b) => now - b.windowStart >= this.windowMs);
       this.buckets.set(key, { count: 1, windowStart: now });
     }
+  }
+
+  /** Undoes one `recordFailure` after a lookup failed before any compare; an empty bucket is dropped. */
+  release(key: string): void {
+    const bucket = this.liveBucket(key);
+    if (!bucket) return;
+    bucket.count -= 1;
+    if (bucket.count <= 0) this.buckets.delete(key);
   }
 
   reset(key: string): void {

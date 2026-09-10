@@ -13,9 +13,10 @@
 // envelope (status "failed", escalate true, no error text). It is for the
 // pre-U3 deploy and the route tests only.
 //
-// `tokenProvider` adapts the auth holder to the `() => Promise<string>` shape
-// both RestFoundryAdapter and a future generated `@osdk/client` accept, so the
-// delegated user's access token is read per request and never copied.
+// `tokenProvider` adapts the auth holder to the `{ getToken, refresh }` pair
+// RestFoundryAdapter takes (a future generated `@osdk/client` accepts the
+// `getToken` half), so the delegated user's access token is read per request
+// and never copied, and a 401 can force a refresh before the one retry.
 
 import type { Config } from "../config.js";
 import type { FoundryAuth } from "../lib/foundry-auth-types.js";
@@ -31,13 +32,16 @@ import type {
   UserLookup,
 } from "./adapter.js";
 
-import { RestFoundryAdapter } from "./rest.js";
+import { RestFoundryAdapter, type TokenSource } from "./rest.js";
 
-export type TokenProvider = () => Promise<string>;
+export type TokenProvider = TokenSource;
 
-/** Adapts the delegated-user auth holder to the per-request token provider shape. */
+/** Adapts the delegated-user auth holder to the per-request token source the adapter takes. */
 export function tokenProvider(auth: FoundryAuth): TokenProvider {
-  return () => auth.getToken();
+  return {
+    getToken: () => auth.getToken(),
+    refresh: () => auth.forceRefresh(),
+  };
 }
 
 /** The Foundry-backed adapter for the configured mode. Throws for "fake", which server.ts wires without auth. */
@@ -48,7 +52,7 @@ export function createFoundryAdapter(config: Config, auth: FoundryAuth, logger: 
         stackUrl: config.foundry.stackUrl,
         ontology: config.foundry.ontologyRid,
         names: config.ontologyNames,
-        getToken: tokenProvider(auth),
+        tokens: tokenProvider(auth),
         logger,
       });
     case "not-ready":
