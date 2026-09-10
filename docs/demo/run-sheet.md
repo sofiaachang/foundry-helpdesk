@@ -6,11 +6,11 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 
 1. Laptop on an allowed network or VPN: `~/.local/bin/pltr admin user current --profile zap` prints your user.
 2. Railway service up: `curl -s https://<railway-url>/health` returns `{"ok":true,"adapter":"foundry","auth":"ok"}`. If `adapter` is `not-ready`, the deploy predates U3; if `auth` is `logged_out` (after a restart or 30 idle days), open `https://<railway-url>/auth/start?t=<FOUNDRY_LOGIN_TOKEN>` in a browser, sign in, and re-check.
-4. Workshop module open on the Issues table, sorted newest first, with the Action log panel visible.
-5. Demo phone charged, caller id not withheld, keypad tones enabled.
-6. `voice-helpdesk-writers` group page open in another tab (for the fail-closed scenario).
-7. Do not rehearse the two-wrong-PIN scenario more than twice in fifteen minutes on the demo number; the per-number lockout would trip. A Railway restart clears it, then repeat step 3.
-8. Shared secret rotation, only if needed: set `HELPDESK_SHARED_SECRET=new,old` on Railway, update the ElevenLabs workspace secret, then drop the old value.
+3. Workshop module open on the Issues table, sorted newest first, with the Action log panel visible.
+4. Demo phone charged, caller id not withheld, keypad tones enabled.
+5. `voice-helpdesk-writers` group page open in another tab (for the fail-closed scenario).
+6. Do not rehearse the two-wrong-PIN scenario more than twice in fifteen minutes on the demo number; the per-number lockout would trip. A Railway restart clears it, then repeat step 2.
+7. Shared secret rotation, only if needed: set `HELPDESK_SHARED_SECRET=new,old` on Railway, update the ElevenLabs workspace secret, then drop the old value.
 
 ## Call script
 
