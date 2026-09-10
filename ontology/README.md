@@ -363,6 +363,8 @@ run may combine `--object-type/--pk`, `--action/--params`, and `--refresh-test`.
 - [ ] **Refresh.** The `refresh rotation:` line (`rotated: true`, refresh count, expiry before/after) and the
       `old refresh token rejected after grace:` line (expected 4xx with `error: invalid_grant`), then
       `current token still valid after rotation: ok`.
+- [ ] **Stored literals.** Read one open and one resolved issue and confirm status values are exactly `open`, `in_progress`, `resolved` and priority values `low`, `normal`, `high`; the service filters on these literals (override via `FOUNDRY_ONTOLOGY_NAMES.statusValues` if the ontology differs).
+- [ ] **REST filter shapes.** Note which of these the stack accepted: `and`/`or` filters with `value: [...]`, the `in` filter, the `count` aggregate body, and `returnEdits: "ALL"` on the Action apply (the adapter has a fallback for the aggregate only).
 - [ ] **Stop conditions.** State whether any Goal Capsule stop condition triggered (no delegated login possible, Action cannot
       be applied from an external process, or submission criteria not enforced server-side).
 
