@@ -183,8 +183,8 @@ wait_for_object_type() {
   for i in $(seq 1 60); do
     # The list endpoint reflects a new type sooner than the get endpoint, and
     # add-property resolves through get, so require both before continuing.
-    if "$PLTR" ontology object-type-list "$ONTOLOGY_RID" --profile "$PROFILE" --format json 2>/dev/null | grep -q "\"api_name\": \"$api_name\"" \
-      && "$PLTR" ontology object-type-get "$ONTOLOGY_RID" "$api_name" --profile "$PROFILE" --format json 2>/dev/null | grep -q '"api_name"'; then
+    if "$PLTR" ontology object-type-list "$ONT" --profile "$PROFILE" --format json 2>/dev/null | grep -q "\"api_name\": \"$api_name\"" \
+      && "$PLTR" ontology object-type-get "$ONT" "$api_name" --profile "$PROFILE" --format json 2>/dev/null | grep -q '"api_name"'; then
       log "object type $api_name is readable"
       return 0
     fi
