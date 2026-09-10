@@ -1,0 +1,14 @@
+{
+ "fields": [
+  {
+   "name": "siteId",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "name",
+   "type": "STRING",
+   "nullable": false
+  }
+ ]
+}

@@ -175,6 +175,22 @@ check_pltr_binary() {
 
 # pltr_run ARGS... -> runs "$PLTR" ARGS... --profile "$PROFILE", streaming
 # stdout/stderr through (caller captures with $(...) when it needs the body).
+# wait_for_object_type API_NAME -> polls the public get endpoint until the new
+# type is readable (the ontology index lags modifyOntology by a minute or two;
+# adding properties before that fails with ObjectTypeNotFound).
+wait_for_object_type() {
+  local api_name="$1" i
+  for i in $(seq 1 24); do
+    if "$PLTR" ontology object-type-get "$ONTOLOGY_RID" "$api_name" --profile "$PROFILE" --format json 2>/dev/null | grep -q '"api_name"'; then
+      log "object type $api_name is readable"
+      return 0
+    fi
+    log "waiting for object type $api_name to become readable ($i/24)"
+    sleep 10
+  done
+  die "object type $api_name never became readable; re-run object-types later"
+}
+
 pltr_run() {
   log "+ $PLTR $* --profile $PROFILE"
   "$PLTR" "$@" --profile "$PROFILE"
@@ -251,7 +267,7 @@ cmd_datasets() {
     if [[ "$APPLY" -eq 1 && "$rid" != "<pending --apply>" ]]; then
       pltr_run dataset files upload "$csv_file" "$rid"
       log "uploaded $csv_file to $rid"
-      pltr_run dataset schema set "$rid" --from-csv "$csv_file"
+      pltr_run dataset schema set "$rid" --json-file "$SCRIPT_DIR/schemas/$csv_name.json"
       log "set schema on $rid from $csv_file (inferred; verify createdAt/updatedAt below)"
       pltr_run dataset files list "$rid"
       if [[ "$name" == "helpdesk_issues" ]]; then
@@ -294,6 +310,7 @@ upsert_object_type() {
     local type_id
     type_id="$(json_field_any "$out" objectTypeId rid id)" || die "could not find an object type id in: $out"
     state_set "$state_key" "$type_id"
+    wait_for_object_type "$api_name"
     log "upserted object type $api_name: $type_id"
   else
     log "dry-run plan for object type $api_name:"

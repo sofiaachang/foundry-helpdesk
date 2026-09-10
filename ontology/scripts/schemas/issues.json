@@ -1,0 +1,59 @@
+{
+ "fields": [
+  {
+   "name": "issueId",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "title",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "description",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "status",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "priority",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "resolution",
+   "type": "STRING",
+   "nullable": true
+  },
+  {
+   "name": "reportedByUserId",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "assignedTeamId",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "sourceConversationId",
+   "type": "STRING",
+   "nullable": true
+  },
+  {
+   "name": "createdAt",
+   "type": "TIMESTAMP",
+   "nullable": false
+  },
+  {
+   "name": "updatedAt",
+   "type": "TIMESTAMP",
+   "nullable": false
+  }
+ ]
+}
