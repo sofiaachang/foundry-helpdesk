@@ -132,4 +132,13 @@ describe("CreateIdempotency.run", () => {
     const fresh = store.run(CONV, { ...fields, title: "Different title now" }, () => Promise.resolve("7777"));
     expect(fresh.kind).toBe("started");
   });
+
+  it("sweeps expired records once the map reaches 256 entries, so size tracks the live count", async () => {
+    let now = 0;
+    const store = new CreateIdempotency({ clock: () => now, ttlMs: 600_000 });
+    for (let i = 0; i < 255; i++) store.run(`conv_old_${String(i).padStart(6, "0")}`, fields, () => Promise.resolve("1"));
+    now = 600_000;
+    for (let i = 0; i < 45; i++) store.run(`conv_new_${String(i).padStart(6, "0")}`, fields, () => Promise.resolve("2"));
+    expect(store.size).toBe(45);
+  });
 });

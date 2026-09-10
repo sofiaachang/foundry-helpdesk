@@ -38,6 +38,29 @@ describe("check-no-disclosure.sh", () => {
     expect(r.output).toContain("countOpenIssuesAtSite");
   });
 
+  it("fails when an adapter member is a property-style arrow without session: VerifiedSession", () => {
+    const r = run(fixture("planted-property-arrow"));
+    expect(r.status).not.toBe(0);
+    expect(r.output).toContain("foundry/adapter.ts");
+    expect(r.output).toMatch(/foundry\/adapter\.ts:\d+/);
+    expect(r.output).toContain("getIssue");
+  });
+
+  it("fails when a generic adapter method lacks session: VerifiedSession", () => {
+    const r = run(fixture("planted-generic"));
+    expect(r.status).not.toBe(0);
+    expect(r.output).toContain("foundry/adapter.ts");
+    expect(r.output).toMatch(/foundry\/adapter\.ts:\d+/);
+    expect(r.output).toContain("listOpenIssuesForUser");
+  });
+
+  it("fails when a VerifiedSession is minted with a cast outside lib/tiers.ts", () => {
+    const r = run(fixture("planted-cast"));
+    expect(r.status).not.toBe(0);
+    expect(r.output).toContain("routes/tools.ts");
+    expect(r.output).toMatch(/routes\/tools\.ts:\d+/);
+  });
+
   it("passes on the real service tree", () => {
     const r = run(resolve(here, "../../src"));
     expect(r.output).toContain("PASS");

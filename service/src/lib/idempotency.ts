@@ -8,7 +8,7 @@
 // cannot replay another call's record.
 
 import { createHash } from "node:crypto";
-import { DEFAULT_SESSION_TTL_MS, type Clock } from "./sessions.js";
+import { DEFAULT_SESSION_TTL_MS, sweepExpired, type Clock } from "./sessions.js";
 
 export type CreateRecordState = "pending" | "done" | "failed";
 
@@ -44,6 +44,10 @@ export class CreateIdempotency {
     this.ttlMs = opts.ttlMs ?? DEFAULT_SESSION_TTL_MS;
   }
 
+  get size(): number {
+    return this.records.size;
+  }
+
   private live(conversationId: string): CreateRecord | null {
     const record = this.records.get(conversationId);
     if (!record) return null;
@@ -66,7 +70,9 @@ export class CreateIdempotency {
       return { kind: existing.state === "pending" ? "in_flight" : "recorded", result: existing.result as Promise<T> };
     }
 
-    const record: CreateRecord = { fieldsHash, state: "pending", createdAt: this.clock(), result: Promise.resolve() };
+    const now = this.clock();
+    sweepExpired(this.records, (r) => now - r.createdAt >= this.ttlMs);
+    const record: CreateRecord = { fieldsHash, state: "pending", createdAt: now, result: Promise.resolve() };
     // Written before the work starts so a concurrent same-fields call joins it.
     this.records.set(conversationId, record);
     const result = Promise.resolve()

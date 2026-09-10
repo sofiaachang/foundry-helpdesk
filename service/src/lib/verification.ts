@@ -5,7 +5,7 @@
 import { createHmac } from "node:crypto";
 import { constantTimeEqual } from "./compare.js";
 import { normalizePhone } from "./identifiers.js";
-import { UNKNOWN_CALLER, type CallerLockout, type SessionStore } from "./sessions.js";
+import { UNKNOWN_CALLER, type CallerLockout, type SessionState, type SessionStore } from "./sessions.js";
 
 export { normalizePhone };
 
@@ -50,6 +50,10 @@ export function hashPin(pepper: string, userId: string, pin: string): string {
   return createHmac("sha256", pepper).update(`${userId}:${pin}`).digest("hex");
 }
 
+function isTerminal(state: SessionState): boolean {
+  return state === "locked" || state === "escalated";
+}
+
 function hashesMatch(expectedHex: string, candidateHex: string): boolean {
   return constantTimeEqual(Buffer.from(expectedHex, "hex"), Buffer.from(candidateHex, "hex"));
 }
@@ -75,7 +79,8 @@ export class Verifier {
     if (!session) return { status: "not_verified" };
     const conversationId = session.conversationId;
 
-    if (session.state === "locked") return { status: "locked", attempts: session.attempts };
+    // Locked and escalated are both terminal for a conversation: no lookup, no compare.
+    if (isTerminal(session.state)) return { status: "locked", attempts: session.attempts };
     if (session.state === "verified" && session.user) {
       return { status: "verified", userId: session.user.userId, attempts: session.attempts };
     }
@@ -87,6 +92,12 @@ export class Verifier {
       return { status: "locked", attempts: session.attempts };
     }
 
+    // Reserve the attempt on both counters before the first await, so a burst of
+    // concurrent calls cannot all pass the checks above and all be compared. A
+    // success below undoes both reservations.
+    this.lockout.recordFailure(callerKey);
+    const reserved = this.sessions.recordFailure(conversationId);
+
     const user = callerKey === UNKNOWN_CALLER ? null : await this.lookup(callerKey);
     const digits = typeof input.digits === "string" ? input.digits : "";
     const expected = user?.pinHash ?? this.dummyHash;
@@ -94,14 +105,17 @@ export class Verifier {
     const matched = hashesMatch(expected, candidate);
     const success = user !== null && digits.length > 0 && matched;
 
-    if (success) {
+    // The conversation may have been escalated while the lookup was in flight.
+    const escalatedMeanwhile = this.sessions.peek(conversationId)?.state === "escalated";
+
+    if (success && !escalatedMeanwhile) {
       this.sessions.bindVerified(conversationId, { userId: user.userId, fullName: user.fullName, siteId: user.siteId });
       this.lockout.reset(callerKey);
       return { status: "verified", userId: user.userId, attempts: 0 };
     }
 
-    this.lockout.recordFailure(callerKey);
-    const { attempts, locked } = this.sessions.recordFailure(conversationId);
-    return locked ? { status: "locked", attempts } : { status: "retry", attempts };
+    return reserved.locked || escalatedMeanwhile
+      ? { status: "locked", attempts: reserved.attempts }
+      : { status: "retry", attempts: reserved.attempts };
   }
 }

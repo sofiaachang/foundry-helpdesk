@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { SessionStore } from "../sessions.js";
 import { TIER0, gate, ownsIssue, tierOf, type VerifiedSession } from "../tiers.js";
 import { TOOL_NAMES } from "../types.js";
@@ -24,12 +24,11 @@ describe("tier registry", () => {
 });
 
 describe("gate", () => {
-  it("returns not_verified for a tier-1 tool on an unverified session without invoking any lookup", () => {
+  it("returns not_verified for a tier-1 tool on an unverified session", () => {
+    // The gate takes no lookup at all: an unverified session cannot reach Foundry by construction.
     const sessions = store();
-    const lookup = vi.fn();
     const r = gate(sessions, "get_issue_status", CONV);
     expect(r).toEqual({ kind: "not_verified" });
-    expect(lookup).not.toHaveBeenCalled();
   });
 
   it("returns not_verified for a missing or malformed conversation id and creates no session", () => {

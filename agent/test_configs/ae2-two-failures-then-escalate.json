@@ -51,7 +51,7 @@
       {
         "parameter_conditions": [],
         "is_error": false,
-        "mock_result": "{\"status\":\"ok\",\"speech\":\"A person will call you back on this number. Goodbye.\",\"escalate\":false,\"data\":{\"recorded\":true}}"
+        "mock_result": "{\"status\":\"escalate\",\"speech\":\"A person will call you back on this number. Goodbye.\",\"escalate\":true,\"data\":{\"recorded\":true}}"
       }
     ]
   }

@@ -4,6 +4,8 @@
 // Imports use explicit .ts extensions because Node 26 runs these scripts
 // directly (type stripping), and scripts/ sits outside the tsc rootDir.
 
+import { asRecord } from "../src/lib/types.ts";
+
 export interface TurnLine {
   event: "postcall_turn";
   conversation_id: string | null;
@@ -25,10 +27,6 @@ export interface ToolCallLine {
 }
 
 export type LogLine = TurnLine | ToolCallLine;
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
 
 function numberOrNull(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;

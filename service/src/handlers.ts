@@ -95,9 +95,14 @@ class CreateFailedError extends Error {
   }
 }
 
-/** Only the summary needs digit stripping: it is the one free-text field in the packet. */
+/**
+ * Only the summary needs digit stripping: it is the one free-text field in the
+ * packet. Any digit run counts, including single digits read aloud with spaces,
+ * dots, commas, or dashes between them ("4 3 2 1"), so a spoken PIN never lands
+ * in the log. Spelled-out digits ("four three two one") remain a prompt concern.
+ */
 function stripDigits(text: string): string {
-  return text.replace(/\d{2,}/g, "[number]").replace(/\s+/g, " ").trim();
+  return text.replace(/\d(?:[\s.,-]*\d)*/g, "[number]").replace(/\s+/g, " ").trim();
 }
 
 export function buildHandlers(deps: HandlerDeps): ToolHandlers {
@@ -151,7 +156,9 @@ export function buildHandlers(deps: HandlerDeps): ToolHandlers {
   const verify_caller: ToolHandler = async (ctx) => {
     const body = asRecord(ctx.body) ?? {};
     const raw = body.digits;
-    const digits = typeof raw === "string" && raw.length <= 8 ? raw : "";
+    // Keypad input may carry a terminator or separators ("4321#"); only the digits are the PIN.
+    const normalised = typeof raw === "string" ? raw.replace(/\D/g, "") : "";
+    const digits = normalised.length <= 8 ? normalised : "";
     const result = await verifier.verify({ conversationId: body.conversation_id, callerId: body.caller_id, digits });
     switch (result.status) {
       case "verified":

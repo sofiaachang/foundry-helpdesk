@@ -52,46 +52,111 @@ else
 fi
 
 echo
-echo "== adapter methods require session: VerifiedSession first =="
+echo "== adapter members require session: VerifiedSession first =="
 if [[ ! -f "$adapter" ]]; then
   echo "FAIL: adapter not found at $adapter"
   status=1
 else
-  # A method signature is an indented identifier followed by "(". Control-flow
-  # keywords and constructors are not methods. Multi-line signatures are read
-  # up to the "(" only, so the first parameter must be on the same line or the
-  # next non-blank one.
+  # Rather than pattern-match individual signature shapes (plain methods,
+  # `readonly`/`async` prefixes, generic `<T>` parameter lists, and
+  # property-style arrow members like `name: (...) => Promise<...>` all look
+  # different lexically), this walks the body of `interface FoundryAdapter`
+  # brace-depth aware, joins each member's possibly-multi-line text into one
+  # logical statement (split on `;` at the interface's own nesting depth so a
+  # `;` inside a nested object type like `input: { title: string }` doesn't
+  # end the member early), and applies one allowlist rule: any member whose
+  # text contains "Promise<" must also contain "session: VerifiedSession"
+  # unless it names findUserByPhone.
   sig_hits=$(
     awk -v file="$adapter" '
-      function check(name, rest, lineno) {
-        if (name == "findUserByPhone") return
-        if (rest ~ /^[[:space:]]*session[[:space:]]*:[[:space:]]*VerifiedSession([[:space:]]*[,)]|$)/) return
-        printf "%s:%d: %s( missing session: VerifiedSession as first parameter\n", file, lineno, name
+      function flush(lineno,    m, name, hasPromise, hasSession, hasFindUser) {
+        m = buf
+        buf = ""
+        gsub(/^[ \t\n]+|[ \t\n]+$/, "", m)
+        if (m == "") return
+        hasFindUser = (m ~ /findUserByPhone/)
+        hasPromise = (m ~ /Promise[[:space:]]*</)
+        hasSession = (m ~ /session[[:space:]]*:[[:space:]]*VerifiedSession/)
+        if (!hasFindUser && hasPromise && !hasSession) {
+          name = m
+          gsub(/^(readonly|async)[[:space:]]+/, "", name)
+          match(name, /^[A-Za-z_][A-Za-z0-9_]*/)
+          name = substr(name, RSTART, RLENGTH)
+          printf "%s:%d: %s( missing session: VerifiedSession as first parameter\n", file, bufLine, name
+        }
       }
-      pending != "" {
-        if ($0 ~ /^[[:space:]]*$/) next
-        check(pending, $0, pendingLine); pending = ""
-        next
+      function process(s, lineno,    i, c) {
+        for (i = 1; i <= length(s); i++) {
+          c = substr(s, i, 1)
+          if (buf == "") bufLine = lineno
+          if (c == "{") {
+            depth++
+            buf = buf c
+          } else if (c == "}") {
+            if (depth == 0) {
+              flush(lineno)
+              inInterface = 0
+              return
+            }
+            depth--
+            buf = buf c
+          } else if (c == ";" && depth == 0) {
+            buf = buf c
+            flush(lineno)
+          } else {
+            buf = buf c
+          }
+        }
+        if (buf != "") buf = buf "\n"
       }
-      /^[[:space:]]*(\/\/|\*|\/\*)/ { next }
-      match($0, /^[[:space:]]*(async[[:space:]]+)?[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\(/) {
-        head = substr($0, RSTART, RLENGTH)
-        rest = substr($0, RSTART + RLENGTH)
-        gsub(/^[[:space:]]*(async[[:space:]]+)?/, "", head)
-        sub(/[[:space:]]*\($/, "", head)
-        if (head ~ /^(if|for|while|switch|catch|return|constructor|function|typeof|new|await)$/) next
-        if (rest ~ /^[[:space:]]*$/) { pending = head; pendingLine = NR; next }
-        check(head, rest, NR)
+      BEGIN { inInterface = 0; depth = 0; buf = ""; bufLine = 0 }
+      {
+        if (!inInterface) {
+          if ($0 ~ /(^|[^A-Za-z0-9_])interface[[:space:]]+FoundryAdapter([[:space:]]|\{|$)/) {
+            inInterface = 1
+            depth = 0
+            buf = ""
+            idx = index($0, "{")
+            if (idx > 0) process(substr($0, idx + 1), NR)
+          }
+          next
+        }
+        process($0, NR)
       }
     ' "$adapter"
   )
   if [[ -n "$sig_hits" ]]; then
     echo "$sig_hits"
-    echo "FAIL: adapter method without a VerifiedSession first parameter"
+    echo "FAIL: adapter member without a VerifiedSession first parameter"
     status=1
   else
-    echo "  every method after findUserByPhone takes session: VerifiedSession"
+    echo "  every member after findUserByPhone takes session: VerifiedSession"
   fi
+fi
+
+echo
+echo "== no VerifiedSession minted via cast outside lib/tiers.ts =="
+# The tier gate in lib/tiers.ts is the only code allowed to mint a
+# VerifiedSession. A cast (`as VerifiedSession`, `satisfies VerifiedSession`,
+# or the `<VerifiedSession>expr` prefix form) anywhere else manufactures one
+# without going through the gate.
+cast_hits=$(
+  grep -rnE --include='*.ts' \
+    -e '\bas[[:space:]]+VerifiedSession\b' \
+    -e '\bsatisfies[[:space:]]+VerifiedSession\b' \
+    -e '(^|[^A-Za-z0-9_>])<VerifiedSession>' \
+    "$root" 2>/dev/null \
+  | grep -vE "^$root/lib/tiers\.ts:" \
+  | grep -vE "^$root/(.*/)?__tests__/" \
+  | grep -vE '^[^:]*\.test\.ts:' \
+  || true
+)
+if [[ -n "$cast_hits" ]]; then
+  echo "$cast_hits"
+  echo "FAIL: VerifiedSession minted via cast outside lib/tiers.ts"
+  status=1
+else
+  echo "  none"
 fi
 
 echo

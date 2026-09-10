@@ -100,7 +100,7 @@
           "type": "webhook",
           "request_id": "req_003",
           "tool_name": "escalate",
-          "result_value": "{\"status\":\"ok\",\"speech\":\"A person will call you back on this number. Goodbye.\",\"escalate\":false,\"data\":{\"recorded\":true}}",
+          "result_value": "{\"status\":\"escalate\",\"speech\":\"A person will call you back on this number. Goodbye.\",\"escalate\":true,\"data\":{\"recorded\":true}}",
           "is_error": false,
           "tool_has_been_called": true
         }

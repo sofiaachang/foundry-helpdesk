@@ -65,7 +65,7 @@
           "type": "webhook",
           "request_id": "req_009",
           "tool_name": "find_similar_issues",
-          "result_value": "{\"status\":\"ok\",\"speech\":\"I couldn't find a similar issue.\",\"escalate\":false,\"data\":{\"match\":null}}",
+          "result_value": "{\"status\":\"not_found\",\"speech\":\"I couldn't find a similar issue that was already resolved. Would you like me to log a new one?\",\"escalate\":false,\"data\":{\"match\":null}}",
           "is_error": false,
           "tool_has_been_called": true
         }

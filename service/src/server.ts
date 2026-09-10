@@ -36,10 +36,10 @@ async function main(): Promise<void> {
   const verifier = new Verifier({ sessions, lockout, lookup: (phone) => adapter.findUserByPhone(phone), pepper: config.pinPepper });
   const idempotency = new CreateIdempotency({ clock, ttlMs: config.sessionTtlMs });
 
-  const handlers = wrapAllHandlers(buildHandlers({ adapter, sessions, lockout, verifier, idempotency, logger, clock }), {
-    logger,
-    slowToolsMs: config.slowToolsMs,
-  });
+  const handlers = wrapAllHandlers(
+    buildHandlers({ adapter, sessions, lockout, verifier, idempotency, logger, clock, recentTtlMs: config.sessionTtlMs }),
+    { logger, slowToolsMs: config.slowToolsMs },
+  );
 
   const app = await buildApp({ config, logger, handlers, extraRoutes: [postcallRoutes(config)] });
 

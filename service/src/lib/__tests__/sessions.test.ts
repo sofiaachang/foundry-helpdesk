@@ -90,6 +90,24 @@ describe("SessionStore", () => {
     store.getOrCreate("conv_1234567890");
     expect(store.markEscalated("conv_1234567890")?.state).toBe("escalated");
   });
+
+  it("markEscalated never clears a lock", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    store.recordFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")?.state).toBe("locked");
+    expect(store.markEscalated("conv_1234567890")?.state).toBe("locked");
+    expect(store.peek("conv_1234567890")?.state).toBe("locked");
+  });
+
+  it("sweeps expired sessions once the map reaches 256 entries, so size tracks the live count", () => {
+    const clock = clockAt();
+    const store = new SessionStore({ clock: clock.now, ttlMs: 600_000 });
+    for (let i = 0; i < 255; i++) store.getOrCreate(`conv_old_${String(i).padStart(6, "0")}`);
+    clock.advance(600_000);
+    for (let i = 0; i < 45; i++) store.getOrCreate(`conv_new_${String(i).padStart(6, "0")}`);
+    expect(store.size).toBe(45);
+  });
 });
 
 describe("CallerLockout", () => {
@@ -131,5 +149,14 @@ describe("CallerLockout", () => {
     lockout.reset("+15551230001");
     lockout.recordFailure("+15551230001");
     expect(lockout.isLocked("+15551230001")).toBe(false);
+  });
+
+  it("sweeps expired buckets once the map reaches 256 entries, so size tracks the live count", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 6, windowMs: 900_000 });
+    for (let i = 0; i < 255; i++) lockout.recordFailure(`+1555000${String(i).padStart(4, "0")}`);
+    clock.advance(900_000);
+    for (let i = 0; i < 45; i++) lockout.recordFailure(`+1555100${String(i).padStart(4, "0")}`);
+    expect(lockout.size).toBe(45);
   });
 });

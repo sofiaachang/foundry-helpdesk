@@ -36,6 +36,9 @@ const SPEECH = {
   verified: "Thanks, you're verified.",
   escalated: "A person will call you back on this number. Goodbye.",
   failed: "I couldn't complete that. I can have a person call you back.",
+  noMatch: "I couldn't find a similar issue that was already resolved. Would you like me to log a new one?",
+  createFailed: "I wasn't able to save that issue, so nothing has been filed. I can have a person call you back. Would you like that?",
+  refusedTier: "I can't do that from this line. I can have a person call you back. Would you like that?",
 };
 
 // ---------------------------------------------------------------------------
@@ -266,6 +269,7 @@ function agentToolCall(toolName: string, params: Record<string, unknown>, result
 }
 const env_ok = (speech: string, data: Record<string, unknown>) => ({ status: "ok", speech, escalate: false, data });
 const env_other = (status: string, speech: string, escalate: boolean, data: Record<string, unknown> = {}) => ({ status, speech, escalate, data });
+const env_escalated = (speech: string, data: Record<string, unknown>) => ({ status: "escalate", speech, escalate: true, data });
 
 const OPENING = `Help desk. ${SPEECH.notVerified}`;
 function verifiedPreamble(): Turn[] {
@@ -361,7 +365,7 @@ TESTS.push(
         { parameter_conditions: [{ path: "digits", eval: { type: "exact", expected_value: "1111" } }], mock_result: JSON.stringify(env_other("not_verified", SPEECH.retry, false)) },
         { mock_result: JSON.stringify(env_other("locked", SPEECH.locked, true)) },
       ],
-      escalate: [{ mock_result: JSON.stringify(env_ok(SPEECH.escalated, { recorded: true })) }],
+      escalate: [{ mock_result: JSON.stringify(env_escalated(SPEECH.escalated, { recorded: true })) }],
     },
   ),
 );
@@ -401,7 +405,7 @@ TESTS.push(
       ...ae2LockedHistory,
       agent(SPEECH.locked),
       user("Yes please, have someone call me."),
-      agentToolCall("escalate", { reason: "Caller could not be verified and asked for a callback." }, env_ok(SPEECH.escalated, { recorded: true })),
+      agentToolCall("escalate", { reason: "Caller could not be verified and asked for a callback." }, env_escalated(SPEECH.escalated, { recorded: true })),
       agent(SPEECH.escalated),
     ],
     END_CALL_REF,
@@ -483,7 +487,7 @@ TESTS.push(
 );
 
 // --- AE6: new issue created --------------------------------------------------
-const NO_MATCH = env_ok("I couldn't find a similar issue.", { match: null });
+const NO_MATCH = env_other("not_found", SPEECH.noMatch, false, { match: null });
 const CREATED = env_ok("I've created issue six, two, zero, three.", { issue_id: "6203" });
 TESTS.push(
   simulationTest(
@@ -538,14 +542,14 @@ TESTS.push(
 );
 
 // --- AE7: fail closed and tool failures --------------------------------------
-const CREATE_FAILED = env_other("failed", SPEECH.failed, true);
+const CREATE_FAILED = env_other("failed", SPEECH.createFailed, true);
 const ae7Yes = [...ae6ConfirmHistory, user("Yes, go ahead.")];
 TESTS.push(
   llmTest(
     "ae7-create-failed-no-success-wording",
     [...ae7Yes, agentToolCall("create_issue", { title: "Third floor label printer prints blank pages", description: "Since this morning the third floor label printer outputs blank pages; a power cycle did not help.", priority: "normal" }, CREATE_FAILED)],
     "The agent says it could not create the issue and offers to have a person call the caller back. It does not say or imply the issue was created, gives no issue number, and does not say it will try again.",
-    [SPEECH.failed, "I wasn't able to create the issue. I can have a person call you back. Would you like that?"],
+    [SPEECH.createFailed, "I wasn't able to create the issue. I can have a person call you back. Would you like that?"],
     ["I've created your issue.", "Your issue number is six two zero three.", "Let me try that again."],
   ),
   llmTest(
@@ -580,7 +584,7 @@ TESTS.push(
       verify_caller: [{ mock_result: JSON.stringify(env_ok(SPEECH.verified, { verified: true })) }],
       find_similar_issues: [{ mock_result: JSON.stringify(NO_MATCH) }],
       create_issue: [{ mock_result: "Tool call timed out after 10 seconds.", is_error: true }],
-      escalate: [{ mock_result: JSON.stringify(env_ok(SPEECH.escalated, { recorded: true })) }],
+      escalate: [{ mock_result: JSON.stringify(env_escalated(SPEECH.escalated, { recorded: true })) }],
     },
     16,
   ),

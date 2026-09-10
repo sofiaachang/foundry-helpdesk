@@ -36,6 +36,19 @@ export interface SessionStoreOptions {
 export const DEFAULT_SESSION_TTL_MS = 600_000;
 export const DEFAULT_MAX_ATTEMPTS = 2;
 
+/**
+ * Map size at which an insert first sweeps expired entries. Conversation ids
+ * are rarely touched again after a call ends, so lazy per-key expiry alone
+ * would let every store grow by one entry per call for the life of the process.
+ */
+export const SWEEP_THRESHOLD = 256;
+
+/** Deletes every entry whose `expired` predicate holds once the map is at the threshold. */
+export function sweepExpired<K, V>(map: Map<K, V>, expired: (value: V) => boolean): void {
+  if (map.size < SWEEP_THRESHOLD) return;
+  for (const [key, value] of map) if (expired(value)) map.delete(key);
+}
+
 export function isConversationId(value: unknown): value is string {
   return typeof value === "string" && CONVERSATION_ID_PATTERN.test(value);
 }
@@ -65,7 +78,9 @@ export class SessionStore {
     if (!isConversationId(conversationId)) return null;
     const live = this.peek(conversationId);
     if (live) return live;
-    const session: Session = { conversationId, state: "unverified", attempts: 0, createdAt: this.clock() };
+    const now = this.clock();
+    sweepExpired(this.sessions, (s) => now - s.createdAt >= this.ttlMs);
+    const session: Session = { conversationId, state: "unverified", attempts: 0, createdAt: now };
     this.sessions.set(conversationId, session);
     return session;
   }
@@ -108,9 +123,10 @@ export class SessionStore {
     return session;
   }
 
+  /** Marks a session escalated. A lock is never cleared: a locked caller stays locked through the handoff. */
   markEscalated(conversationId: string): Session | null {
     const session = this.getOrCreate(conversationId);
-    if (session) session.state = "escalated";
+    if (session && session.state !== "locked") session.state = "escalated";
     return session;
   }
 }
@@ -150,6 +166,10 @@ export class CallerLockout {
     this.windowMs = opts.windowMs ?? DEFAULT_LOCKOUT_WINDOW_MS;
   }
 
+  get size(): number {
+    return this.buckets.size;
+  }
+
   private liveBucket(key: string): Bucket | null {
     const bucket = this.buckets.get(key);
     if (!bucket) return null;
@@ -170,7 +190,9 @@ export class CallerLockout {
     if (bucket) {
       bucket.count += 1;
     } else {
-      this.buckets.set(key, { count: 1, windowStart: this.clock() });
+      const now = this.clock();
+      sweepExpired(this.buckets, (b) => now - b.windowStart >= this.windowMs);
+      this.buckets.set(key, { count: 1, windowStart: now });
     }
   }
 

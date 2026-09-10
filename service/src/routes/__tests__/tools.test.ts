@@ -134,6 +134,28 @@ describe("tool routes", () => {
       expect(h.logs.text()).not.toContain("8642");
     });
 
+    it("accepts keypad digits with a trailing # terminator", async () => {
+      const env = await h.post("verify_caller", { conversation_id: CONV, caller_id: DEMO_PHONE, digits: `${DEMO_PIN}#` });
+      expect(env.status).toBe("ok");
+      expect(env.data).toEqual({ verified: true });
+    });
+
+    it("two wrong PINs then escalate keeps the session locked: the correct PIN is refused and reads stay closed", async () => {
+      await h.post("verify_caller", { conversation_id: CONV, caller_id: DEMO_PHONE, digits: "8642" });
+      const second = await h.post("verify_caller", { conversation_id: CONV, caller_id: DEMO_PHONE, digits: "8643" });
+      expect(second.status).toBe("locked");
+      const esc = await h.post("escalate", { conversation_id: CONV, caller_id: DEMO_PHONE, reason: "cannot verify" });
+      expect(esc.status).toBe("escalate");
+      expect(h.logs.events("escalation")[0]?.verification_state).toBe("locked");
+      const third = await h.verifyDemo();
+      expect(third.status).toBe("locked");
+      expect(third.speech).toBe(LOCKED_SPEECH);
+      const read = await h.post("list_my_open_issues", { conversation_id: CONV });
+      expect(read.status).not.toBe("ok");
+      expect(read.status).toBe("locked");
+      expect(h.adapter.readCalls).toBe(0);
+    });
+
     it("uses the same wording for an unknown number", async () => {
       const env = await h.post("verify_caller", { conversation_id: CONV, caller_id: "+15550109999", digits: DEMO_PIN });
       expect(env.speech).toBe(RETRY_SPEECH);
@@ -417,6 +439,16 @@ describe("tool routes", () => {
       expect(p.summary).toBe("forgot my PIN");
       expect(p.last_tool).toBeNull();
       expect(JSON.stringify(p)).not.toContain(DEMO_PHONE);
+    });
+
+    it("strips spaced single digits from the summary so a spoken PIN never reaches the log", async () => {
+      await h.post("escalate", { conversation_id: CONV, reason: "my PIN is 4 3 2 1 and the code was 7-7.7, ok" });
+      const p = h.logs.events("escalation")[0]!;
+      const text = JSON.stringify(p);
+      expect(text).not.toContain("4 3 2 1");
+      expect(text).not.toContain("4321");
+      expect(p.summary).not.toMatch(/\d/);
+      expect(p.summary).toBe("my PIN is [number] and the code was [number], ok");
     });
 
     it("strips digit runs from the summary and closes the session to further reads", async () => {

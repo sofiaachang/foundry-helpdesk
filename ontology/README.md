@@ -174,7 +174,7 @@ Fill these in at U1/U3/U4 and keep them here as the single source. The service r
 | SDK package name + install command + registry token location | `<TBD from Developer Console>` | n/a | U1 |
 | Administrator Foundry user (notification recipient) | n/a | `<TBD>` | U4 |
 
-Service env keys expected (owned by `service/`): `FOUNDRY_HOST=https://zap.usw-18.palantirfoundry.com`, `FOUNDRY_ONTOLOGY_RID`, `FOUNDRY_CLIENT_ID`, `FOUNDRY_CLIENT_SECRET`, `FOUNDRY_RESTRICTED_CLIENT_ID`, `FOUNDRY_RESTRICTED_CLIENT_SECRET`, `PIN_PEPPER`, `TRIAGE_TEAM_ID=triage`.
+Service env keys expected (owned by `service/`, see `service/.env.example`): `FOUNDRY_STACK_URL=https://zap.usw-18.palantirfoundry.com`, `FOUNDRY_ONTOLOGY_RID`, `FOUNDRY_CLIENT_ID`, `FOUNDRY_CLIENT_SECRET`, `PIN_PEPPER`. The restricted application's client id and secret are not service configuration: for AE7 the human swaps them into `FOUNDRY_CLIENT_ID` and `FOUNDRY_CLIENT_SECRET` in the Railway dashboard for one call (run sheet). The triage team id is fixed to `triage` in the service.
 
 ---
 

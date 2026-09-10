@@ -22,6 +22,14 @@ function harness(opts: { maxFailures?: number; windowMs?: number; ttlMs?: number
   return { sessions, lockout, lookup, verifier, advance };
 }
 
+function deferred<T>() {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((res) => {
+    resolve = res;
+  });
+  return { promise, resolve };
+}
+
 describe("hashPin", () => {
   it("is a hex HMAC-SHA256 keyed by the pepper over userId:pin", () => {
     const h = hashPin(PEPPER, "u_ada", "4321");
@@ -50,6 +58,80 @@ describe("Verifier", () => {
     expect(await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" })).toEqual({ status: "locked", attempts: 2 });
     expect(h.lookup).toHaveBeenCalledTimes(2);
     expect(h.sessions.peek(CONV_A)?.state).toBe("locked");
+  });
+
+  it("treats an escalated session as terminal: verify returns locked without a lookup or compare", async () => {
+    const h = harness();
+    await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "0000" });
+    h.sessions.markEscalated(CONV_A);
+    expect(h.sessions.peek(CONV_A)?.state).toBe("escalated");
+    const r = await h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" });
+    expect(r.status).toBe("locked");
+    expect(h.lookup).toHaveBeenCalledTimes(1);
+    expect(h.sessions.peek(CONV_A)?.state).toBe("escalated");
+    expect(h.sessions.peek(CONV_A)?.user).toBeUndefined();
+  });
+
+  it("reserves the attempt before the lookup: three concurrent guesses compare at most twice and the third is locked", async () => {
+    const h = harness();
+    const gate = deferred<void>();
+    h.lookup.mockImplementation(async (phone: string) => {
+      await gate.promise;
+      return USERS[phone] ?? null;
+    });
+    const calls = [
+      h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "0000" }),
+      h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "1111" }),
+      h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "2222" }),
+    ];
+    // Nothing has resolved yet, but both limits are already reserved.
+    expect(h.lookup).toHaveBeenCalledTimes(2);
+    expect(h.sessions.peek(CONV_A)?.state).toBe("locked");
+    gate.resolve();
+    const [first, second, third] = await Promise.all(calls);
+    expect(first).toEqual({ status: "retry", attempts: 1 });
+    expect(second).toEqual({ status: "locked", attempts: 2 });
+    expect(third.status).toBe("locked");
+    expect(h.lookup).toHaveBeenCalledTimes(2);
+  });
+
+  it("a correct PIN inside a concurrent burst that already exhausted the attempts does not verify", async () => {
+    const h = harness();
+    const gate = deferred<void>();
+    h.lookup.mockImplementation(async (phone: string) => {
+      await gate.promise;
+      return USERS[phone] ?? null;
+    });
+    const wrong = [
+      h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "0000" }),
+      h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "1111" }),
+    ];
+    const correct = h.verifier.verify({ conversationId: CONV_A, callerId: "+15551230001", digits: "4321" });
+    gate.resolve();
+    await Promise.all(wrong);
+    const r = await correct;
+    expect(r.status).toBe("locked");
+    expect(h.sessions.peek(CONV_A)?.state).toBe("locked");
+    expect(h.sessions.peek(CONV_A)?.user).toBeUndefined();
+    expect(h.lookup).toHaveBeenCalledTimes(2);
+  });
+
+  it("concurrent guesses across conversations count against the caller id lockout before any compare", async () => {
+    const h = harness({ maxFailures: 6 });
+    const gate = deferred<void>();
+    h.lookup.mockImplementation(async (phone: string) => {
+      await gate.promise;
+      return USERS[phone] ?? null;
+    });
+    const burst = Array.from({ length: 10 }, (_, i) =>
+      h.verifier.verify({ conversationId: `conv_j${i}j${i}j${i}j${i}j${i}`, callerId: "+15551230001", digits: "0000" }),
+    );
+    expect(h.lookup).toHaveBeenCalledTimes(6);
+    expect(h.lockout.isLocked("+15551230001")).toBe(true);
+    gate.resolve();
+    const results = await Promise.all(burst);
+    expect(results.filter((r) => r.status === "locked").length).toBeGreaterThanOrEqual(4);
+    expect(h.lookup).toHaveBeenCalledTimes(6);
   });
 
   it("correct PIN after one failure returns verified and resets attempts", async () => {

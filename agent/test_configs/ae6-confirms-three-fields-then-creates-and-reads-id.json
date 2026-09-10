@@ -38,7 +38,7 @@
       {
         "parameter_conditions": [],
         "is_error": false,
-        "mock_result": "{\"status\":\"ok\",\"speech\":\"I couldn't find a similar issue.\",\"escalate\":false,\"data\":{\"match\":null}}"
+        "mock_result": "{\"status\":\"not_found\",\"speech\":\"I couldn't find a similar issue that was already resolved. Would you like me to log a new one?\",\"escalate\":false,\"data\":{\"match\":null}}"
       }
     ],
     "TOOL_ID_NOT_PUSHED_YET:create_issue": [
