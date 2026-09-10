@@ -2,7 +2,15 @@
 // fails fast, naming the missing variable, so a bad Railway deploy dies at boot
 // instead of at the first tool call mid-demo.
 
-export type AdapterKind = "osdk" | "fake";
+import { DEFAULT_ONTOLOGY_NAMES, mergeOntologyNames, OntologyNamesError, type OntologyNames } from "./lib/ontology-names.js";
+
+/**
+ * "foundry": the REST adapter over the delegated user token (plan U8; "osdk"
+ * is accepted as an alias from the pre-U8 deploys). "not-ready": the login
+ * routes work and every tool call fails closed; for the pre-U3 deploy and
+ * tests only. "fake": in-memory seed rows; local only, refused in production.
+ */
+export type AdapterKind = "foundry" | "not-ready" | "fake";
 
 export interface Config {
   port: number;
@@ -22,6 +30,8 @@ export interface Config {
     /** Per-deploy random value that guards /auth/start and is echoed in the OAuth state. */
     loginToken: string;
   };
+  /** Object, property, link, and action api names; FOUNDRY_ONTOLOGY_NAMES overrides the ERD defaults. */
+  ontologyNames: OntologyNames;
   /** Current secret first, previous second during a rotation. */
   sharedSecrets: string[];
   elevenLabsWebhookSecret: string;
@@ -68,17 +78,37 @@ function optionalInt(env: Record<string, string | undefined>, name: string, fall
   return n;
 }
 
-export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
-  const adapterRaw = env.FOUNDRY_ADAPTER?.trim() || "osdk";
-  if (adapterRaw !== "osdk" && adapterRaw !== "fake") {
-    throw new ConfigError(`FOUNDRY_ADAPTER must be "osdk" or "fake", got "${adapterRaw}"`);
+function ontologyNames(env: Record<string, string | undefined>): OntologyNames {
+  const raw = env.FOUNDRY_ONTOLOGY_NAMES?.trim();
+  if (!raw) return DEFAULT_ONTOLOGY_NAMES;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new ConfigError("FOUNDRY_ONTOLOGY_NAMES must be valid JSON");
   }
-  const adapter: AdapterKind = adapterRaw;
+  try {
+    return mergeOntologyNames(DEFAULT_ONTOLOGY_NAMES, parsed);
+  } catch (error) {
+    const detail = error instanceof OntologyNamesError ? error.message : "invalid override";
+    throw new ConfigError(`FOUNDRY_ONTOLOGY_NAMES: ${detail}`);
+  }
+}
+
+function adapterKind(env: Record<string, string | undefined>): AdapterKind {
+  const raw = env.FOUNDRY_ADAPTER?.trim() || "foundry";
+  if (raw === "foundry" || raw === "osdk") return "foundry";
+  if (raw === "not-ready" || raw === "fake") return raw;
+  throw new ConfigError(`FOUNDRY_ADAPTER must be "foundry", "not-ready", or "fake", got "${raw}"`);
+}
+
+export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
+  const adapter = adapterKind(env);
 
   // The fake adapter exists so the service can be exercised locally before G3
   // clears. It must never be selected on Railway; server.ts refuses it in production.
   const foundry =
-    adapter === "osdk"
+    adapter !== "fake"
       ? {
           stackUrl: requiredHttpUrl(env, "FOUNDRY_STACK_URL"),
           clientId: required(env, "FOUNDRY_CLIENT_ID"),
@@ -110,6 +140,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     logLevel: env.LOG_LEVEL?.trim() || "info",
     adapter,
     foundry,
+    ontologyNames: ontologyNames(env),
     sharedSecrets,
     elevenLabsWebhookSecret: required(env, "ELEVENLABS_WEBHOOK_SECRET"),
     pinPepper: required(env, "PIN_PEPPER"),

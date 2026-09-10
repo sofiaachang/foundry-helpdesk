@@ -1,14 +1,16 @@
-// The osdk slot before U8: a placeholder adapter that fails closed. Nothing
-// here talks to Foundry; the tests prove that every tool call becomes the
+// The not-ready placeholder adapter and the adapter factory. Nothing here
+// talks to Foundry; the tests prove that every tool call becomes the
 // contract's failed envelope while verification (which needs only the user
-// lookup) still works when a delegate is supplied.
+// lookup) still works when a delegate is supplied, and that the factory picks
+// the REST adapter for "foundry" mode.
 
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { buildApp, type App } from "../../app.js";
 import { buildHandlers } from "../../handlers.js";
 import { FakeFoundryAdapter } from "../fake.js";
-import { FoundryNotReadyError, NotReadyFoundryAdapter, tokenProvider } from "../osdk.js";
+import { createFoundryAdapter, FoundryNotReadyError, NotReadyFoundryAdapter, tokenProvider } from "../osdk.js";
+import { RestFoundryAdapter } from "../rest.js";
 import { CreateIdempotency } from "../../lib/idempotency.js";
 import { CallerLockout, SessionStore } from "../../lib/sessions.js";
 import { Verifier } from "../../lib/verification.js";
@@ -79,7 +81,24 @@ describe("NotReadyFoundryAdapter", () => {
   });
 });
 
-describe("osdk mode routes with the not-ready adapter", () => {
+describe("createFoundryAdapter", () => {
+  const auth = {
+    beginLogin: () => "",
+    completeLogin: async () => {},
+    getToken: async () => "tok",
+    status: () => ({ status: "ok" as const, expiresAt: null }),
+  };
+  const foundry = { stackUrl: "https://zap.example", clientId: "c", ontologyRid: "ri.ontology.main.ontology.x", redirectUrl: "http://localhost/cb", loginToken: "l" };
+
+  it("builds the REST adapter for foundry mode and the placeholder for not-ready", () => {
+    const logs = new CapturingLogger();
+    expect(createFoundryAdapter(testConfig({ adapter: "foundry", foundry }), auth, logs as never)).toBeInstanceOf(RestFoundryAdapter);
+    expect(createFoundryAdapter(testConfig({ adapter: "not-ready", foundry }), auth, logs as never)).toBeInstanceOf(NotReadyFoundryAdapter);
+    expect(() => createFoundryAdapter(testConfig({ adapter: "fake" }), auth, logs as never)).toThrow(/fake/);
+  });
+});
+
+describe("not-ready mode routes with the placeholder adapter", () => {
   let app: App | undefined;
   afterEach(async () => {
     await app?.close();
@@ -96,7 +115,7 @@ describe("osdk mode routes with the not-ready adapter", () => {
     const idempotency = new CreateIdempotency({ clock });
     const handlers = buildHandlers({ adapter, sessions, lockout, verifier, idempotency, logger: logs as never, clock });
     app = await buildApp({
-      config: testConfig({ adapter: "osdk", sharedSecrets: [SECRET], pinPepper: PEPPER }),
+      config: testConfig({ adapter: "not-ready", sharedSecrets: [SECRET], pinPepper: PEPPER }),
       logger: logs as never,
       handlers: wrapAllHandlers(handlers, { logger: logs as never, slowToolsMs: 0 }),
     });

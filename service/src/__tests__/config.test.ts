@@ -38,6 +38,21 @@ describe("loadConfig", () => {
     expect(() => loadConfig({ ...complete, FOUNDRY_ADAPTER: "magic" })).toThrow(/FOUNDRY_ADAPTER/);
   });
 
+  it("defaults to the foundry adapter and accepts osdk as an alias for it", () => {
+    const env = { ...complete };
+    delete env.FOUNDRY_ADAPTER;
+    expect(loadConfig(env).adapter).toBe("foundry");
+    expect(loadConfig({ ...complete, FOUNDRY_ADAPTER: "osdk" }).adapter).toBe("foundry");
+    expect(loadConfig({ ...complete, FOUNDRY_ADAPTER: "foundry" }).adapter).toBe("foundry");
+  });
+
+  it("accepts not-ready and requires the Foundry login settings for it", () => {
+    expect(loadConfig({ ...complete, FOUNDRY_ADAPTER: "not-ready" }).adapter).toBe("not-ready");
+    const env: Record<string, string> = { ...complete, FOUNDRY_ADAPTER: "not-ready" };
+    delete env.FOUNDRY_CLIENT_ID;
+    expect(() => loadConfig(env)).toThrow(/FOUNDRY_CLIENT_ID/);
+  });
+
   it("does not require Foundry settings when the fake adapter is selected", () => {
     const env = { ...complete };
     delete env.FOUNDRY_CLIENT_ID;
@@ -76,5 +91,39 @@ describe("loadConfig", () => {
     delete env.FOUNDRY_LOGIN_TOKEN;
     expect(() => loadConfig(env)).toThrow(/FOUNDRY_LOGIN_TOKEN/);
     expect(() => loadConfig({ ...env, FOUNDRY_LOGIN_TOKEN: "short" })).toThrow(/FOUNDRY_LOGIN_TOKEN/);
+  });
+
+  describe("FOUNDRY_ONTOLOGY_NAMES", () => {
+    it("uses the ERD defaults when unset", () => {
+      const cfg = loadConfig(complete);
+      expect(cfg.ontologyNames.issue.objectType).toBe("HelpdeskIssue");
+      expect(cfg.ontologyNames.issue.properties.reportedByUserId).toBe("reportedByUserId");
+      expect(cfg.ontologyNames.action.createIssue).toBe("createHelpdeskIssue");
+      expect(cfg.ontologyNames.user.links.site).toBe("site");
+      expect(cfg.ontologyNames.team.links.assignedIssues).toBe("assignedIssues");
+    });
+
+    it("deep-merges a partial JSON override over the defaults", () => {
+      const cfg = loadConfig({
+        ...complete,
+        FOUNDRY_ONTOLOGY_NAMES: JSON.stringify({
+          issue: { objectType: "helpdesk-issue", properties: { title: "issueTitle" } },
+          action: { createIssue: "create-helpdesk-issue" },
+        }),
+      });
+      expect(cfg.ontologyNames.issue.objectType).toBe("helpdesk-issue");
+      expect(cfg.ontologyNames.issue.properties.title).toBe("issueTitle");
+      expect(cfg.ontologyNames.issue.properties.description).toBe("description");
+      expect(cfg.ontologyNames.action.createIssue).toBe("create-helpdesk-issue");
+      expect(cfg.ontologyNames.action.parameters.reportedBy).toBe("reportedBy");
+      expect(cfg.ontologyNames.user.objectType).toBe("HelpdeskUser");
+    });
+
+    it("rejects invalid JSON, a non-object, an unknown key, and a non-string value, naming the variable", () => {
+      expect(() => loadConfig({ ...complete, FOUNDRY_ONTOLOGY_NAMES: "{not json" })).toThrow(/FOUNDRY_ONTOLOGY_NAMES/);
+      expect(() => loadConfig({ ...complete, FOUNDRY_ONTOLOGY_NAMES: "[]" })).toThrow(/FOUNDRY_ONTOLOGY_NAMES/);
+      expect(() => loadConfig({ ...complete, FOUNDRY_ONTOLOGY_NAMES: JSON.stringify({ issue: { props: {} } }) })).toThrow(/FOUNDRY_ONTOLOGY_NAMES.*issue\.props/);
+      expect(() => loadConfig({ ...complete, FOUNDRY_ONTOLOGY_NAMES: JSON.stringify({ issue: { objectType: 3 } }) })).toThrow(/FOUNDRY_ONTOLOGY_NAMES.*issue\.objectType/);
+    });
   });
 });

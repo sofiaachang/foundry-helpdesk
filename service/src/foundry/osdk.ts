@@ -1,23 +1,23 @@
-// The osdk slot before the generated SDK exists (plan U8, gates G1 and G3).
+// The adapter factory and the not-ready placeholder (plan U8, gates G1 and G3).
 //
-// NOTHING IN THIS FILE TALKS TO FOUNDRY. `NotReadyFoundryAdapter` is a
-// placeholder that lets a deploy selecting FOUNDRY_ADAPTER=osdk boot far enough
-// to serve /health and the one-time login routes (/auth/start, /auth/callback,
-// /auth/status), while every tool call fails closed: each adapter method
-// rejects with FoundryNotReadyError, which the handlers map to the contract's
-// failed envelope (status "failed", escalate true, no error text).
+// `createFoundryAdapter` picks the implementation for the two Foundry-backed
+// modes: "foundry" builds RestFoundryAdapter (rest.ts) over the delegated
+// user token, "not-ready" builds NotReadyFoundryAdapter. The fake adapter is
+// wired directly in server.ts because it needs no auth.
 //
-// U8 replaces this class with the real adapter built on the generated OSDK
-// package from the Developer Console app (plan KTD3):
+// NOTHING IN NotReadyFoundryAdapter TALKS TO FOUNDRY. It lets a deploy that
+// selects FOUNDRY_ADAPTER=not-ready boot far enough to serve /health and the
+// one-time login routes (/auth/start, /auth/callback, /auth/status), while
+// every tool call fails closed: each adapter method rejects with
+// FoundryNotReadyError, which the handlers map to the contract's failed
+// envelope (status "failed", escalate true, no error text). It is for the
+// pre-U3 deploy and the route tests only.
 //
-//   import { createClient } from "@osdk/client";
-//   const client = createClient(config.foundry.stackUrl, config.foundry.ontologyRid, tokenProvider(auth));
-//
-// `createClient` accepts a `() => Promise<string>` token provider and calls it
-// per request, so the delegated user's access token is refreshed by
-// FoundryDelegatedAuth and never copied into the client. `tokenProvider` is
-// kept here so U8 only swaps the class.
+// `tokenProvider` adapts the auth holder to the `() => Promise<string>` shape
+// both RestFoundryAdapter and a future generated `@osdk/client` accept, so the
+// delegated user's access token is read per request and never copied.
 
+import type { Config } from "../config.js";
 import type { FoundryAuth } from "../lib/foundry-auth-types.js";
 import type { SimilarCandidate } from "../lib/similarity.js";
 import type { VerifiedSession } from "../lib/tiers.js";
@@ -31,11 +31,31 @@ import type {
   UserLookup,
 } from "./adapter.js";
 
+import { RestFoundryAdapter } from "./rest.js";
+
 export type TokenProvider = () => Promise<string>;
 
-/** Adapts the delegated-user auth holder to the token-provider shape `@osdk/client` expects. */
+/** Adapts the delegated-user auth holder to the per-request token provider shape. */
 export function tokenProvider(auth: FoundryAuth): TokenProvider {
   return () => auth.getToken();
+}
+
+/** The Foundry-backed adapter for the configured mode. Throws for "fake", which server.ts wires without auth. */
+export function createFoundryAdapter(config: Config, auth: FoundryAuth, logger: NotReadyLogger): FoundryAdapter {
+  switch (config.adapter) {
+    case "foundry":
+      return new RestFoundryAdapter({
+        stackUrl: config.foundry.stackUrl,
+        ontology: config.foundry.ontologyRid,
+        names: config.ontologyNames,
+        getToken: tokenProvider(auth),
+        logger,
+      });
+    case "not-ready":
+      return new NotReadyFoundryAdapter(logger);
+    case "fake":
+      throw new Error("createFoundryAdapter does not build the fake adapter");
+  }
 }
 
 /**
@@ -44,7 +64,7 @@ export function tokenProvider(auth: FoundryAuth): TokenProvider {
  */
 export class FoundryNotReadyError extends Error {
   constructor() {
-    super("Foundry adapter is not ready (generated SDK not installed; plan U8)");
+    super("Foundry adapter is not ready (FOUNDRY_ADAPTER=not-ready)");
     this.name = "FoundryNotReadyError";
   }
 }
@@ -69,8 +89,8 @@ export class NotReadyFoundryAdapter implements FoundryAdapter {
   constructor(logger: NotReadyLogger, opts: NotReadyFoundryAdapterOptions = {}) {
     this.userLookup = opts.userLookup;
     logger.warn(
-      { event: "foundry_adapter_not_ready", adapter: "osdk-not-ready" },
-      "FOUNDRY_ADAPTER=osdk selected but the generated SDK is not installed (plan U8); tool calls fail closed, /auth/* and /health work",
+      { event: "foundry_adapter_not_ready", adapter: "not-ready" },
+      "FOUNDRY_ADAPTER=not-ready selected; tool calls fail closed, /auth/* and /health work",
     );
   }
 
