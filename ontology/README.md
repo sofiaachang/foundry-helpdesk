@@ -142,6 +142,123 @@ pltr ontology object-count $ONT HelpdeskUser --profile zap   # 12
 
 Substitute the recorded api names if the console assigned different ones.
 
+### 2.5 Scripted alternative
+
+`ontology/scripts/author-ontology.sh` drives most of sections 1 to 2.4 through
+`pltr` instead of clicking through Ontology Manager. It is a convenience, not
+a replacement for this document: read it alongside the click path above, not
+instead of it.
+
+**Network precondition.** Every subcommand except `--help` talks to Foundry.
+Before running anything, confirm the CLI can reach zap:
+
+```sh
+~/.local/bin/pltr admin user current --profile zap
+```
+
+If that fails (404, UNAUTHORIZED, or a network/allowlist error), fix that
+first; the script will fail the same way and there is nothing it can do about
+it.
+
+**Dry run first.** The script defaults to a dry run and only writes with an
+explicit `--apply`:
+
+```sh
+# plan only, writes nothing
+ontology/scripts/author-ontology.sh datasets
+ontology/scripts/author-ontology.sh object-types
+ontology/scripts/author-ontology.sh links
+ontology/scripts/author-ontology.sh action
+
+# after reading each plan, write for real, in order
+ontology/scripts/author-ontology.sh datasets --apply
+ontology/scripts/author-ontology.sh object-types --apply
+ontology/scripts/author-ontology.sh links --apply
+ontology/scripts/author-ontology.sh action --apply
+ontology/scripts/author-ontology.sh verify
+
+# or the whole sequence at once, still dry-run unless --apply is given
+ontology/scripts/author-ontology.sh --apply all
+```
+
+`object-type-upsert`, `link-type-upsert`, and `action-type-upsert` have their
+own dry-run mode, so the plan for those three steps still calls Foundry (it
+just does not write). `dataset create`, `folder create`, `dataset files
+upload`, and `dataset schema set` have no such mode, so without `--apply` the
+script only prints the command it would run and never calls `pltr` for them.
+Every RID and object/link/action-type id the script creates is recorded in
+`ontology/scripts/state.env` (gitignored) and read back on the next run, so
+re-running any subcommand, or the whole `all` sequence, is safe and picks up
+where it left off.
+
+`SEED_DIR` selects which CSVs get uploaded: it defaults to
+`ontology/seed/local` (the real pepper and phone, gitignored) and falls back
+to the committed `ontology/seed` placeholder CSVs with a loud warning if
+`ontology/seed/local` does not exist. Do not let the placeholder fallback
+upload silently; generate `ontology/seed/local` first (section 1) for
+anything but a throwaway smoke test.
+
+`ontology/scripts/action-create-helpdesk-issue.definition.json` is a
+best-effort `ActionTypeCreate` document for the `action` subcommand. The
+exact internal shape of that contract (parameter type unions, the
+`addObjectRule` property-value mapping, validation constraint shapes) is not
+documented anywhere in this repo or the `pltr-cli` reference, so this file is
+a guess built from the Action spec (`ontology/action-create-helpdesk-issue.md`)
+and the one worked example in the `pltr-cli` docs. **Validate it with the dry
+run before trusting it**: `ontology/scripts/author-ontology.sh action` (no
+`--apply`) calls `action-type-upsert` without writing, and pltr's own
+validation error will name the first rejected key. If the dry run rejects the
+parameter or rule shapes and a quick fix is not obvious, stop guessing against
+the live stack and create the Action by hand in Ontology Manager per
+`ontology/action-create-helpdesk-issue.md` instead — about 15 minutes,
+sections 1 to 5 of that spec.
+
+**What the script does not do, on purpose, and the UI must still do:**
+
+- **Title keys.** `object-type-upsert` only sets the primary key; there is no
+  `--title-key` flag anywhere in `pltr ontology`. Set `userId` -> `fullName`,
+  `issueId` -> `title`, `siteId` -> `name`, `teamId` -> `name` as title keys
+  in Ontology Manager (section 2.2 step 3) after running `object-types`.
+- **Value types.** `object-type-add-property --type` only accepts primitive
+  types (`STRING`, `TIMESTAMP`, ...), not the custom value types from section
+  2.1. The script adds `Issue.status` and `Issue.priority` as plain `STRING`;
+  attach `helpdeskIssueStatus` and `helpdeskIssuePriority` to them by hand
+  (section 2.2 step 3).
+- **The Action's submission criterion.** Deliberately left out of
+  `action-create-helpdesk-issue.definition.json` — the internal condition
+  shape for a current-user-group check is not documented anywhere available
+  here, and guessing at it risked shipping a criterion that looks right but
+  does not actually gate on `voice-helpdesk-writers`. Add it by hand in the
+  Action's **Security & Submission Criteria** tab per
+  `ontology/action-create-helpdesk-issue.md` section 3 (current user > group
+  IDs includes `voice-helpdesk-writers`, failure message as specified there).
+- **The Action log object type and the notification rule.** Sections 4 and 5
+  of `ontology/action-create-helpdesk-issue.md`; both are configured on the
+  Action's Overview/Rules tabs and have no equivalent in
+  `action-type-upsert`'s documented definition surface.
+- **The Developer Console application and its SDK scope** (section 6 of the
+  Action spec) — outside `pltr ontology` entirely.
+
+**Filling in the placeholder table (section 3) from `state.env`.** After
+`datasets`, `object-types`, `links`, and `action` have all run with `--apply`,
+`ontology/scripts/state.env` holds every RID and internal id the table below
+needs:
+
+| Placeholder table row | `state.env` key |
+|---|---|
+| Object type User / Issue / Site / Team RID | `OBJECT_TYPE_ID_HELPDESKUSER`, `OBJECT_TYPE_ID_HELPDESKISSUE`, `OBJECT_TYPE_ID_SITE`, `OBJECT_TYPE_ID_TEAM` |
+| Link Issue -> User / Issue -> Team / User -> Site RID | `LINK_TYPE_ID_REPORTEDBY`, `LINK_TYPE_ID_ASSIGNEDTEAM`, `LINK_TYPE_ID_SITE` |
+| Action create-helpdesk-issue RID | `ACTION_TYPE_ID_CREATEHELPDESKISSUE` |
+| Dataset helpdesk_sites / helpdesk_teams / helpdesk_users / helpdesk_issues RID | `HELPDESK_SITES_DATASET_RID`, `HELPDESK_TEAMS_DATASET_RID`, `HELPDESK_USERS_DATASET_RID`, `HELPDESK_ISSUES_DATASET_RID` |
+
+Copy each value into the matching RID column in section 3. The api names in
+that table (`HelpdeskUser`, `HelpdeskIssue`, `Site`, `Team`, `reportedBy` /
+`reportedIssues`, etc.) are the ones the script passes on the command line, so
+they are already final; only the RID/id columns are filled from `state.env`.
+Value types, the Action log object type, and everything else the UI still has
+to do (title keys, submission criterion, notification rule, Developer
+Console) are recorded in the table exactly as before, by hand, once created.
+
 ---
 
 ## 3. Placeholders the service needs
