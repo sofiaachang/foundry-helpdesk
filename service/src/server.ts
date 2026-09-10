@@ -8,7 +8,7 @@ import { loadConfig } from "./config.js";
 import type { FoundryAdapter } from "./foundry/adapter.js";
 import { FoundryDelegatedAuth } from "./foundry/auth.js";
 import { FakeFoundryAdapter } from "./foundry/fake.js";
-import { createOsdkAdapter, tokenProvider } from "./foundry/osdk.js";
+import { NotReadyFoundryAdapter } from "./foundry/osdk.js";
 import { buildHandlers } from "./handlers.js";
 import { CreateIdempotency } from "./lib/idempotency.js";
 import { CallerLockout, SessionStore } from "./lib/sessions.js";
@@ -45,7 +45,10 @@ async function main(): Promise<void> {
       clock,
     });
     extraRoutes.push(authRoutes(auth, { loginToken: config.foundry.loginToken }));
-    adapter = createOsdkAdapter(config, tokenProvider(auth));
+    // Until U8 installs the generated SDK, the osdk slot holds a placeholder
+    // that fails every tool call closed while the login routes stay usable.
+    // U8 replaces this line with the real adapter over tokenProvider(auth).
+    adapter = new NotReadyFoundryAdapter(logger);
   }
 
   const sessions = new SessionStore({ clock, ttlMs: config.sessionTtlMs });
@@ -61,7 +64,8 @@ async function main(): Promise<void> {
   const app = await buildApp({ config, logger, handlers, extraRoutes });
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
-  logger.info({ event: "listening", port: config.port, adapter: config.adapter, slow_tools_ms: config.slowToolsMs });
+  const adapterLabel = config.adapter === "osdk" ? "osdk-not-ready" : config.adapter;
+  logger.info({ event: "listening", port: config.port, adapter: adapterLabel, slow_tools_ms: config.slowToolsMs });
 }
 
 main().catch((error: unknown) => {

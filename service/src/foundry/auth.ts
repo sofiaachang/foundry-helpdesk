@@ -148,6 +148,21 @@ export class FoundryDelegatedAuth implements FoundryAuth {
     return fresh.accessToken;
   }
 
+  /**
+   * Refreshes now, regardless of expiry, sharing the in-flight exchange with
+   * any concurrent getToken(). Exists for the U1 probe (`--refresh-test`) so
+   * rotation can be observed without waiting for the access token to age.
+   */
+  async forceRefresh(): Promise<void> {
+    if (!this.tokens) throw new FoundryAuthError("logged_out");
+    if (!this.refreshing) {
+      this.refreshing = this.refresh().finally(() => {
+        this.refreshing = null;
+      });
+    }
+    await this.refreshing;
+  }
+
   status(): FoundryAuthStatusReport {
     const t = this.tokens;
     if (!t) return { status: "logged_out", expiresAt: null };

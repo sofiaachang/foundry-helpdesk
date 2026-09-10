@@ -184,7 +184,70 @@ Service env keys expected (owned by `service/`, see `service/.env.example`): `FO
 
 ### U1 (Foundry access spike)
 
-_To be filled at U1: scope strings the console shows, roles granted to the service user, SDK install command and registry token location, observed validation and permission error shapes, whether `applyAction` from Node with client credentials succeeds on zap._
+The probe is `service/scripts/probe-foundry.ts`, run through `tsx` (as `pnpm dev` is) because it imports the service's own auth module, whose `.js`-suffixed imports Node's native type stripping does not rewrite. It logs the delegated user in through the
+Developer Console public client (PKCE + `offline_access`, plan KTD3) using a local callback listener, then runs one step per
+line. It never prints a token, an OAuth code, or a full response body; error text is redacted and capped at 300 characters.
+Its pure helpers (argument parsing, redaction, edit-list and validation extraction) are unit tested in
+`service/scripts/__tests__/probe-foundry.test.ts`.
+
+#### Commands
+
+Run from the repo root. The redirect URL must be registered on the app exactly as given (default `http://localhost:3000/auth/callback`,
+so port 3000 must be free; stop any local `pnpm dev` first, or set `FOUNDRY_REDIRECT_URL` to another registered URL).
+
+```bash
+# 1. Metadata + object types only (proves the token and the ontology scope)
+FOUNDRY_STACK_URL=https://zap.usw-18.palantirfoundry.com FOUNDRY_CLIENT_ID=<client id> FOUNDRY_ONTOLOGY_RID=<ri.ontology.main.ontology.…> \
+  pnpm --dir service exec tsx scripts/probe-foundry.ts
+
+# 2. Object read (one seeded object of the throwaway type; also try a type outside the app's resource restrictions)
+FOUNDRY_STACK_URL=… FOUNDRY_CLIENT_ID=… FOUNDRY_ONTOLOGY_RID=… \
+  pnpm --dir service exec tsx scripts/probe-foundry.ts --object-type <objectTypeApiName> --pk <primaryKey>
+
+# 3. Action apply, valid parameters (prints the added primary keys from returnEdits: ALL)
+FOUNDRY_STACK_URL=… FOUNDRY_CLIENT_ID=… FOUNDRY_ONTOLOGY_RID=… \
+  pnpm --dir service exec tsx scripts/probe-foundry.ts --action <actionApiName> --params '{"title":"probe","priority":"normal"}'
+
+# 4. Action apply, deliberately invalid (omit a required parameter, or send a wrong type)
+FOUNDRY_STACK_URL=… FOUNDRY_CLIENT_ID=… FOUNDRY_ONTOLOGY_RID=… \
+  pnpm --dir service exec tsx scripts/probe-foundry.ts --action <actionApiName> --params '{"priority":"normal"}'
+
+# 5. Action apply while NOT in the throwaway Action's writers group (AE7 evidence; log in as that user)
+FOUNDRY_STACK_URL=… FOUNDRY_CLIENT_ID=… FOUNDRY_ONTOLOGY_RID=… \
+  pnpm --dir service exec tsx scripts/probe-foundry.ts --action <actionApiName> --params '{"title":"probe","priority":"normal"}'
+
+# 6. Refresh rotation: two forced refreshes, then a 75 s wait and a replay of the first refresh token (expect 4xx)
+FOUNDRY_STACK_URL=… FOUNDRY_CLIENT_ID=… FOUNDRY_ONTOLOGY_RID=… \
+  pnpm --dir service exec tsx scripts/probe-foundry.ts --refresh-test --grace-wait-seconds 75
+```
+
+Each run prints an authorize URL; open it in a browser, log in, and the probe continues when the callback lands. A single
+run may combine `--object-type/--pk`, `--action/--params`, and `--refresh-test`.
+
+#### Checklist: paste the observed output under each heading
+
+- [ ] **Developer Console record.** Application RID, client id (public, no secret), every scope string the console shows on the
+      application (expected `api:use-ontologies-read`, `api:use-ontologies-write`, `offline_access`, plus any `api:use-*` the
+      console adds), the redirect URLs registered, the resource restrictions (four object types + the Action), and the SDK
+      install command with the registry token location (the token itself stays in the console).
+- [ ] **Login.** The `login: ok {...}` line (auth status and expiry only).
+- [ ] **Ontology metadata.** The `ontology metadata:` line with `apiName`, `displayName`, `rid`.
+- [ ] **Object types.** The `object types (pageSize=5):` line with the `apiNames` list; note whether types outside the
+      app's restrictions appear.
+- [ ] **Object read, in scope.** The `object read: ok` line showing `__apiName` and `__primaryKey`.
+- [ ] **Object read, out of scope.** The `object read: failed` line for a type outside the app's restrictions
+      (`errorName`, `errorCode`, `status`).
+- [ ] **Action apply, success.** The `action apply: ok` line with `validation.result` and the `added` primary keys, and a note
+      that the Action log in Ontology Manager names the delegated user and the application.
+- [ ] **Action apply, invalid parameter.** The `action apply: failed` line: HTTP status, `errorName`, `errorCode`,
+      `validation.invalidParameters` (must name the missing parameter), redacted `message`.
+- [ ] **Action apply, submission criteria not met (AE7).** The `action apply: failed` line with `validation.submissionCriteria`
+      (result and configured failure message) and confirmation that nothing was created.
+- [ ] **Refresh.** The `refresh rotation:` line (`rotated: true`, refresh count, expiry before/after) and the
+      `old refresh token rejected after grace:` line (expected 4xx with `error: invalid_grant`), then
+      `current token still valid after rotation: ok`.
+- [ ] **Stop conditions.** State whether any Goal Capsule stop condition triggered (no delegated login possible, Action cannot
+      be applied from an external process, or submission criteria not enforced server-side).
 
 ### U14 (keypad spike)
 

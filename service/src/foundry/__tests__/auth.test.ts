@@ -319,3 +319,39 @@ describe("FoundryDelegatedAuth.getToken", () => {
     expect(auth.status().status).toBe("expired");
   });
 });
+
+describe("FoundryDelegatedAuth.forceRefresh", () => {
+  it("refreshes regardless of expiry, rotates the refresh token, and shares one exchange with getToken", async () => {
+    let n = 0;
+    const { auth, calls } = build((call) => {
+      if (call.form.get("grant_type") === "authorization_code") return json(tokenBody(ACCESS_1, REFRESH_1, 3600));
+      if (call.form.get("grant_type") === "refresh_token") {
+        n += 1;
+        return json(tokenBody(`access-${n}`, `refresh-${n}`, 3600));
+      }
+      return json({}, 500);
+    });
+    await login(auth);
+    // Far from expiry: getToken alone would not refresh.
+    await expect(auth.getToken()).resolves.toBe(ACCESS_1);
+
+    await auth.forceRefresh();
+    await expect(auth.getToken()).resolves.toBe("access-1");
+    await auth.forceRefresh();
+    await expect(auth.getToken()).resolves.toBe("access-2");
+
+    const refreshes = calls.filter((c) => c.form.get("grant_type") === "refresh_token");
+    expect(refreshes.map((c) => c.form.get("refresh_token"))).toEqual([REFRESH_1, "refresh-1"]);
+  });
+
+  it("throws logged_out before login and surfaces a categorised error on a 4xx", async () => {
+    const { auth } = build((call) => {
+      if (call.form.get("grant_type") === "authorization_code") return json(tokenBody(ACCESS_1, REFRESH_1, 3600));
+      return json({ error: "invalid_grant" }, 400);
+    });
+    await expect(auth.forceRefresh()).rejects.toMatchObject({ category: "logged_out" });
+    await login(auth);
+    await expect(auth.forceRefresh()).rejects.toMatchObject({ category: "refresh_failed", httpStatus: 400 });
+    expect(auth.status().status).toBe("logged_out");
+  });
+});
