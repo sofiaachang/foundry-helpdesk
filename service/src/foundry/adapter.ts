@@ -3,6 +3,7 @@
 // by the tier gate in lib/tiers.ts, which is what makes "no read before
 // verification" a type-level property rather than a convention.
 
+import type { SimilarCandidate } from "../lib/similarity.js";
 import type { IssueStatus, Priority } from "../lib/types.js";
 import type { VerifiedSession } from "../lib/tiers.js";
 
@@ -28,11 +29,6 @@ export interface TeamQueue {
   top: IssueSummary[];
 }
 
-export interface SimilarMatch {
-  issueId: string;
-  resolution: string;
-}
-
 export interface CreateIssueInput {
   issueId: string;
   title: string;
@@ -55,6 +51,6 @@ export interface FoundryAdapter extends UserLookup {
   listOpenIssuesForUser(session: VerifiedSession): Promise<{ count: number; top: IssueSummary[] }>;
   getTeamQueueForIssue(session: VerifiedSession, issueId: string): Promise<TeamQueue | null>;
   countOpenIssuesAtSite(session: VerifiedSession): Promise<{ siteName: string; openCount: number }>;
-  findResolvedIssuesMatching(session: VerifiedSession, terms: string[]): Promise<Array<SimilarMatch & { title: string; description: string }>>;
+  findResolvedIssuesMatching(session: VerifiedSession, terms: string[]): Promise<SimilarCandidate[]>;
   createIssue(session: VerifiedSession, input: CreateIssueInput): Promise<CreateIssueResult>;
 }

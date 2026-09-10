@@ -10,6 +10,7 @@ import type { CreateIssueInput, FoundryAdapter } from "./foundry/adapter.js";
 import { normalizeIssueId } from "./lib/identifiers.js";
 import { CreateIdempotency } from "./lib/idempotency.js";
 import { rankSimilar, salientTerms } from "./lib/similarity.js";
+import { asRecord } from "./lib/types.js";
 import type { CallerLockout, Clock, SessionStore } from "./lib/sessions.js";
 import {
   CREATE_FAILED_SPEECH,
@@ -46,6 +47,8 @@ export interface HandlerDeps {
   clock: Clock;
   /** Four-digit identifier in 5000..9999 (KTD16). Injected so tests are deterministic. */
   drawIssueId?: () => string;
+  /** How long the escalation memory for a conversation is kept; defaults to the session TTL. */
+  recentTtlMs?: number;
 }
 
 /** Everything the escalation log line may carry (KTD12). Never digits, never caller id. */
@@ -69,10 +72,6 @@ export function defaultDrawIssueId(): string {
 const PRIORITIES: readonly Priority[] = ["low", "normal", "high"];
 const COMMON_FIELDS = new Set(["conversation_id", "caller_id"]);
 const CREATE_FIELDS = new Set([...COMMON_FIELDS, "title", "description", "priority"]);
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
-}
 
 function stringField(body: Record<string, unknown>, name: string, min: number, max: number): string | null {
   const value = body[name];
@@ -105,11 +104,29 @@ export function buildHandlers(deps: HandlerDeps): ToolHandlers {
   const { adapter, sessions, verifier, idempotency, logger, clock } = deps;
   const drawIssueId = deps.drawIssueId ?? defaultDrawIssueId;
 
-  /** Last tool and last confirmed issue title per conversation, for the escalation packet. */
+  /**
+   * Last tool and last confirmed issue title per conversation, for the
+   * escalation packet. Entries age out with the session TTL so a process that
+   * serves many calls does not keep every conversation forever.
+   */
+  const recentTtlMs = deps.recentTtlMs ?? 600_000;
   const recent = new Map<string, { lastTool: ToolName; summary?: string; at: number }>();
+  const recall = (conversationId: string) => {
+    const entry = recent.get(conversationId);
+    if (!entry) return undefined;
+    if (clock() - entry.at > recentTtlMs) {
+      recent.delete(conversationId);
+      return undefined;
+    }
+    return entry;
+  };
   const remember = (conversationId: string, lastTool: ToolName, summary?: string) => {
-    const prev = recent.get(conversationId);
-    recent.set(conversationId, { lastTool, summary: summary ?? prev?.summary, at: clock() });
+    const now = clock();
+    if (recent.size >= 256) {
+      for (const [id, entry] of recent) if (now - entry.at > recentTtlMs) recent.delete(id);
+    }
+    const prev = recall(conversationId);
+    recent.set(conversationId, { lastTool, summary: summary ?? prev?.summary, at: now });
   };
 
   /** Runs a tier-1 tool: gate, then the body with the minted session. Any throw becomes `failed`. */
@@ -189,7 +206,7 @@ export function buildHandlers(deps: HandlerDeps): ToolHandlers {
     if (!description) return failed();
     const terms = salientTerms(description);
     const candidates = terms.length > 0 ? await adapter.findResolvedIssuesMatching(session, terms) : [];
-    const match = rankSimilar(description, candidates);
+    const match = rankSimilar(terms, candidates);
     if (!match) return envelope("not_found", NO_SIMILAR_SPEECH, false, { match: null });
     return envelope("ok", similarMatchSpeech(match.resolution), false, {
       match: { issue_id: match.issueId, resolution: match.resolution },
@@ -242,7 +259,7 @@ export function buildHandlers(deps: HandlerDeps): ToolHandlers {
     if (!session) return notVerified();
     const conversationId = session.conversationId;
     const reason = stringField(body, "reason", 0, 300) ?? "";
-    const memory = recent.get(conversationId);
+    const memory = recall(conversationId);
     const packet: EscalationLogFields = {
       event: "escalation",
       conversation_id: conversationId,

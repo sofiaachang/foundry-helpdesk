@@ -22,7 +22,9 @@
 //   holds the parameters and is never read here.
 // A second webhook type, `post_call_audio`, exists and is ignored.
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
+import { constantTimeEqual } from "../lib/compare.js";
+import { asRecord } from "../lib/types.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { Config } from "../config.js";
 import { CONVERSATION_ID_PATTERN } from "../lib/types.js";
@@ -67,12 +69,6 @@ function parseSignature(header: string | string[] | undefined): { t: string; v0:
   return { t, v0 };
 }
 
-function hexEquals(a: string, b: string): boolean {
-  const ab = Buffer.from(a, "utf8");
-  const bb = Buffer.from(b, "utf8");
-  return ab.length === bb.length && timingSafeEqual(ab, bb);
-}
-
 /** Returns a reason when the request must be refused; null when it is authentic and fresh. */
 export function verifySignature(
   header: string | string[] | undefined,
@@ -90,13 +86,9 @@ export function verifySignature(
   // Check every presented v0 so a rotated secret's extra signature cannot mask a bad one by position.
   let ok = false;
   for (const candidate of parsed.v0) {
-    if (hexEquals(candidate, expected)) ok = true;
+    if (constantTimeEqual(Buffer.from(expected, "utf8"), Buffer.from(candidate, "utf8"))) ok = true;
   }
   return ok ? null : "bad_signature";
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
 function conversationId(value: unknown): string | null {

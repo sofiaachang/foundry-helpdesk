@@ -5,7 +5,9 @@
 // server.ts refuses this adapter in production.
 
 import { readFileSync } from "node:fs";
+import { setTimeout as delay } from "node:timers/promises";
 import { join } from "node:path";
+import type { SimilarCandidate } from "../lib/similarity.js";
 import type { IssueStatus, Priority } from "../lib/types.js";
 import type { VerifiedSession } from "../lib/tiers.js";
 import type {
@@ -14,7 +16,6 @@ import type {
   FoundryAdapter,
   IssueDetail,
   IssueSummary,
-  SimilarMatch,
   TeamQueue,
 } from "./adapter.js";
 
@@ -226,7 +227,7 @@ export class FakeFoundryAdapter implements FoundryAdapter {
   async findResolvedIssuesMatching(
     _session: VerifiedSession,
     terms: string[],
-  ): Promise<Array<SimilarMatch & { title: string; description: string }>> {
+  ): Promise<SimilarCandidate[]> {
     this.readCalls++;
     if (terms.length === 0) return [];
     const wanted = new Set(terms.map((t) => t.toLowerCase()));
@@ -240,7 +241,7 @@ export class FakeFoundryAdapter implements FoundryAdapter {
   async createIssue(session: VerifiedSession, input: CreateIssueInput): Promise<CreateIssueResult> {
     this.createCalls++;
     this.lastCreate = { session, input };
-    if (this.createDelayMs > 0) await new Promise((r) => setTimeout(r, this.createDelayMs));
+    if (this.createDelayMs > 0) await delay(this.createDelayMs);
     if (this.pendingThrow !== null) {
       const error = this.pendingThrow;
       this.pendingThrow = null;

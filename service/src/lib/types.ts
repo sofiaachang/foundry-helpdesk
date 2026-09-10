@@ -39,6 +39,11 @@ export const CONVERSATION_ID_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
 
 export const FAILED_SPEECH = "I couldn't complete that. I can have a person call you back.";
 
+/** A plain JSON object, or null for anything else (arrays, primitives, null). */
+export function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
 export function failed(): Envelope {
   return { status: "failed", speech: FAILED_SPEECH, escalate: true, data: {} };
 }

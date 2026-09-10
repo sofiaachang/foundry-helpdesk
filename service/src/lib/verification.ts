@@ -2,7 +2,8 @@
 // a caller is verified: this module is the only place that compares PINs, and
 // its result is the only thing that moves a session to "verified".
 
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac } from "node:crypto";
+import { constantTimeEqual } from "./compare.js";
 import { normalizePhone } from "./identifiers.js";
 import { UNKNOWN_CALLER, type CallerLockout, type SessionStore } from "./sessions.js";
 
@@ -50,10 +51,7 @@ export function hashPin(pepper: string, userId: string, pin: string): string {
 }
 
 function hashesMatch(expectedHex: string, candidateHex: string): boolean {
-  const expected = Buffer.from(expectedHex, "hex");
-  const candidate = Buffer.from(candidateHex, "hex");
-  if (expected.length === 0 || expected.length !== candidate.length) return false;
-  return timingSafeEqual(expected, candidate);
+  return constantTimeEqual(Buffer.from(expectedHex, "hex"), Buffer.from(candidateHex, "hex"));
 }
 
 export class Verifier {

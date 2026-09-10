@@ -48,15 +48,14 @@ export interface SimilarResult {
 
 /**
  * The single best candidate whose title+description shares at least
- * `threshold` salient terms with the description, or null. Ties keep the
+ * `threshold` of the query's salient terms (from `salientTerms`), or null. Ties keep the
  * earlier candidate, which callers order newest-resolved first.
  */
 export function rankSimilar(
-  description: string,
+  query: string[],
   candidates: SimilarCandidate[],
   threshold: number = SIMILARITY_THRESHOLD,
 ): SimilarResult | null {
-  const query = salientTerms(description);
   if (query.length === 0) return null;
   let best: SimilarResult | null = null;
   for (const c of candidates) {

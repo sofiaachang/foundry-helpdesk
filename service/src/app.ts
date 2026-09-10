@@ -1,9 +1,9 @@
 // Builds the Fastify app. server.ts is the composition root that supplies the
 // adapter and real handlers; tests build the app with fakes.
 
-import { timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyBaseLogger, type FastifyError, type FastifyInstance } from "fastify";
 import type { Config } from "./config.js";
+import { constantTimeEqual } from "./lib/compare.js";
 import { healthRoutes } from "./routes/health.js";
 import { defaultHandlers, toolRoutes, type ToolHandlers } from "./routes/tools.js";
 
@@ -23,11 +23,7 @@ function secretMatches(presented: string, accepted: string[]): boolean {
   const presentedBuf = Buffer.from(presented, "utf8");
   let ok = false;
   for (const candidate of accepted) {
-    const candidateBuf = Buffer.from(candidate, "utf8");
-    // Compare fixed-length buffers so length differences do not short-circuit.
-    if (candidateBuf.length === presentedBuf.length && timingSafeEqual(candidateBuf, presentedBuf)) {
-      ok = true;
-    }
+    if (constantTimeEqual(Buffer.from(candidate, "utf8"), presentedBuf)) ok = true;
   }
   return ok;
 }

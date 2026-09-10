@@ -3,6 +3,7 @@
 // request body is consulted for conversation_id alone, and the envelope for
 // status and a string issue_id.
 
+import { setTimeout as sleep } from "node:timers/promises";
 import { CONVERSATION_ID_PATTERN, type ToolName } from "../lib/types.js";
 import type { ToolHandler, ToolHandlers } from "../routes/tools.js";
 import type { Logger, ToolLogFields } from "./log.js";
@@ -19,10 +20,6 @@ function conversationIdFrom(body: unknown): string | null {
   if (typeof body !== "object" || body === null) return null;
   const value = (body as { conversation_id?: unknown }).conversation_id;
   return typeof value === "string" && CONVERSATION_ID_PATTERN.test(value) ? value : null;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export function withTiming(name: ToolName, handler: ToolHandler, opts: TimingOptions): ToolHandler {

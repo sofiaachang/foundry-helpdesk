@@ -52,27 +52,27 @@ describe("termOverlap", () => {
 
 describe("rankSimilar", () => {
   it("returns the seeded resolved issue with its resolution for the AE5 description", () => {
-    const match = rankSimilar(AE5, [printer, vpn]);
+    const match = rankSimilar(salientTerms(AE5), [printer, vpn]);
     expect(match?.issueId).toBe("2210");
     expect(match?.resolution).toBe(vpn.resolution);
     expect(match?.score).toBeGreaterThanOrEqual(SIMILARITY_THRESHOLD);
   });
 
   it("returns null for the AE6 description", () => {
-    expect(rankSimilar(AE6, [printer, vpn])).toBeNull();
+    expect(rankSimilar(salientTerms(AE6), [printer, vpn])).toBeNull();
   });
 
   it("does not match on stop words: 'the printer is broken again' scores only its salient words", () => {
     const candidate = { issueId: "1", title: "The the the", description: "the is is the", resolution: "r" };
-    expect(rankSimilar("the printer is broken again", [candidate])).toBeNull();
-    expect(rankSimilar("the printer is broken again", [printer, candidate], 2)?.issueId).toBe("3001");
+    expect(rankSimilar(salientTerms("the printer is broken again"), [candidate])).toBeNull();
+    expect(rankSimilar(salientTerms("the printer is broken again"), [printer, candidate], 2)?.issueId).toBe("3001");
   });
 
   it("returns exactly one result, the highest score, and honours the threshold", () => {
     const weaker = { ...vpn, issueId: "9999", title: "Connection trouble", description: "vpn wifi reconnect only" };
-    const match = rankSimilar(AE5, [weaker, vpn]);
+    const match = rankSimilar(salientTerms(AE5), [weaker, vpn]);
     expect(match?.issueId).toBe("2210");
-    expect(rankSimilar(AE5, [weaker], 3)?.issueId).toBe("9999");
-    expect(rankSimilar(AE5, [weaker], 4)).toBeNull();
+    expect(rankSimilar(salientTerms(AE5), [weaker], 3)?.issueId).toBe("9999");
+    expect(rankSimilar(salientTerms(AE5), [weaker], 4)).toBeNull();
   });
 });
