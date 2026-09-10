@@ -1,0 +1,2 @@
+# Credentials and environment-specific values. Never commit these.
+.env

@@ -1,0 +1,88 @@
+{
+  "tests": [
+    {
+      "name": "ae1-unverified-no-tier1-tool",
+      "config": "test_configs/ae1-unverified-no-tier1-tool.json"
+    },
+    {
+      "name": "ae1-unverified-reply-asks-for-pin",
+      "config": "test_configs/ae1-unverified-reply-asks-for-pin.json"
+    },
+    {
+      "name": "ae2-two-failures-then-escalate",
+      "config": "test_configs/ae2-two-failures-then-escalate.json"
+    },
+    {
+      "name": "ae2-locked-offers-callback-no-third-ask",
+      "config": "test_configs/ae2-locked-offers-callback-no-third-ask.json"
+    },
+    {
+      "name": "ae2-locked-no-third-verify-call",
+      "config": "test_configs/ae2-locked-no-third-verify-call.json"
+    },
+    {
+      "name": "ae2-callback-accepted-calls-escalate",
+      "config": "test_configs/ae2-callback-accepted-calls-escalate.json"
+    },
+    {
+      "name": "ae2-after-escalate-calls-end-call",
+      "config": "test_configs/ae2-after-escalate-calls-end-call.json"
+    },
+    {
+      "name": "ae3-status-spoken-with-status-and-team",
+      "config": "test_configs/ae3-status-spoken-with-status-and-team.json"
+    },
+    {
+      "name": "ae5-similar-resolution-yes-no-create",
+      "config": "test_configs/ae5-similar-resolution-yes-no-create.json"
+    },
+    {
+      "name": "ae5-similar-resolution-no-proceeds-to-confirmation",
+      "config": "test_configs/ae5-similar-resolution-no-proceeds-to-confirmation.json"
+    },
+    {
+      "name": "spoken-pin-no-verify-call",
+      "config": "test_configs/spoken-pin-no-verify-call.json"
+    },
+    {
+      "name": "spoken-pin-asks-for-keypad",
+      "config": "test_configs/spoken-pin-asks-for-keypad.json"
+    },
+    {
+      "name": "ae6-confirms-three-fields-then-creates-and-reads-id",
+      "config": "test_configs/ae6-confirms-three-fields-then-creates-and-reads-id.json"
+    },
+    {
+      "name": "ae6-no-create-before-explicit-yes",
+      "config": "test_configs/ae6-no-create-before-explicit-yes.json"
+    },
+    {
+      "name": "ae6-create-after-yes-with-three-fields",
+      "config": "test_configs/ae6-create-after-yes-with-three-fields.json"
+    },
+    {
+      "name": "ae6-reads-new-id-digit-by-digit",
+      "config": "test_configs/ae6-reads-new-id-digit-by-digit.json"
+    },
+    {
+      "name": "ae7-create-failed-no-success-wording",
+      "config": "test_configs/ae7-create-failed-no-success-wording.json"
+    },
+    {
+      "name": "read-timeout-says-unavailable-offers-callback",
+      "config": "test_configs/read-timeout-says-unavailable-offers-callback.json"
+    },
+    {
+      "name": "create-timeout-retries-once",
+      "config": "test_configs/create-timeout-retries-once.json"
+    },
+    {
+      "name": "create-timeout-twice-then-offers-callback",
+      "config": "test_configs/create-timeout-twice-then-offers-callback.json"
+    },
+    {
+      "name": "verified-reply-never-repeats-digits",
+      "config": "test_configs/verified-reply-never-repeats-digits.json"
+    }
+  ]
+}

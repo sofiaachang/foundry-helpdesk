@@ -1,0 +1,115 @@
+{
+  "name": "ae6-create-after-yes-with-three-fields",
+  "type": "tool",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "4127",
+      "source_medium": "dtmf"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 9,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_008",
+          "tool_name": "verify_caller",
+          "params_as_json": "{\"digits\":\"4127\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_008",
+          "tool_name": "verify_caller",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 12,
+      "message": "Thanks, you're verified. How can I help?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 16,
+      "message": "The label printer on the third floor prints blank pages since this morning. I power-cycled it already."
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 18,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_009",
+          "tool_name": "find_similar_issues",
+          "params_as_json": "{\"description\":\"Third floor label printer prints blank pages since this morning, power-cycled already\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_009",
+          "tool_name": "find_similar_issues",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"I couldn't find a similar issue.\",\"escalate\":false,\"data\":{\"match\":null}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 21,
+      "message": "I couldn't find a similar issue. I'll create a new one. Title: Third floor label printer prints blank pages. Description: Since this morning the third floor label printer outputs blank pages; a power cycle did not help. Priority: normal. Shall I create it?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 29,
+      "message": "Yes, go ahead."
+    }
+  ],
+  "tool_call_parameters": {
+    "referenced_tool": {
+      "id": "TOOL_ID_NOT_PUSHED_YET:create_issue",
+      "type": "webhook"
+    },
+    "parameters": [
+      {
+        "path": "title",
+        "eval": {
+          "type": "llm",
+          "description": "A short technical title about the third floor label printer printing blank pages."
+        }
+      },
+      {
+        "path": "description",
+        "eval": {
+          "type": "llm",
+          "description": "Mentions blank pages since this morning and that a power cycle did not help."
+        }
+      },
+      {
+        "path": "priority",
+        "eval": {
+          "type": "exact",
+          "expected_value": "normal"
+        }
+      }
+    ],
+    "verify_absence": false
+  }
+}

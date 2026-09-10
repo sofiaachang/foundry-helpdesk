@@ -1,0 +1,130 @@
+{
+  "name": "ae6-reads-new-id-digit-by-digit",
+  "type": "llm",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "4127",
+      "source_medium": "dtmf"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 9,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_008",
+          "tool_name": "verify_caller",
+          "params_as_json": "{\"digits\":\"4127\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_008",
+          "tool_name": "verify_caller",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 12,
+      "message": "Thanks, you're verified. How can I help?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 16,
+      "message": "The label printer on the third floor prints blank pages since this morning. I power-cycled it already."
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 18,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_009",
+          "tool_name": "find_similar_issues",
+          "params_as_json": "{\"description\":\"Third floor label printer prints blank pages since this morning, power-cycled already\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_009",
+          "tool_name": "find_similar_issues",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"I couldn't find a similar issue.\",\"escalate\":false,\"data\":{\"match\":null}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 21,
+      "message": "I couldn't find a similar issue. I'll create a new one. Title: Third floor label printer prints blank pages. Description: Since this morning the third floor label printer outputs blank pages; a power cycle did not help. Priority: normal. Shall I create it?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 33,
+      "message": "Yes, go ahead."
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 35,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_010",
+          "tool_name": "create_issue",
+          "params_as_json": "{\"title\":\"Third floor label printer prints blank pages\",\"description\":\"Since this morning the third floor label printer outputs blank pages; a power cycle did not help.\",\"priority\":\"normal\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_010",
+          "tool_name": "create_issue",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"I've created issue six, two, zero, three.\",\"escalate\":false,\"data\":{\"issue_id\":\"6203\"}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    }
+  ],
+  "success_condition": "The agent confirms the issue was created and reads the identifier as separate digits: six, two, zero, three. It does not read it as 'six thousand two hundred three' or 'sixty-two oh three'.",
+  "success_examples": [
+    {
+      "response": "I've created issue six, two, zero, three. Is there anything else I can help with?",
+      "type": "success"
+    }
+  ],
+  "failure_examples": [
+    {
+      "response": "I've created issue 6203.",
+      "type": "failure"
+    },
+    {
+      "response": "Your issue number is six thousand two hundred and three.",
+      "type": "failure"
+    },
+    {
+      "response": "I couldn't create the issue.",
+      "type": "failure"
+    }
+  ]
+}

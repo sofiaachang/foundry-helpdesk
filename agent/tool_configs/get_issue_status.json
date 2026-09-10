@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "get_issue_status",
+  "description": "Get the status, assigned team and last update of one help desk issue by its identifier. Requires a verified caller. Only the caller's own issues are returned.",
+  "response_timeout_secs": 10,
+  "pre_tool_speech": "auto",
+  "execution_mode": "immediate",
+  "interruption_mode": "allow",
+  "tool_error_handling_mode": "hide",
+  "api_schema": {
+    "url": "https://REPLACE-AT-G6.example.invalid/tools/get_issue_status",
+    "method": "POST",
+    "content_type": "application/json",
+    "request_headers": {
+      "X-Helpdesk-Secret": {
+        "secret_id": "wsec_REPLACE_WITH_ID_OF_helpdesk_shared_secret"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "description": "Tool request body. conversation_id and caller_id are filled by the system, never by the model.",
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "caller_id": {
+          "type": "string",
+          "dynamic_variable": "system__caller_id"
+        },
+        "issue_id": {
+          "type": "string",
+          "description": "The issue identifier as the caller said it, digits or words (for example '4127' or 'forty-one twenty-seven'). The service normalises it."
+        }
+      },
+      "required": [
+        "conversation_id",
+        "issue_id"
+      ]
+    }
+  }
+}

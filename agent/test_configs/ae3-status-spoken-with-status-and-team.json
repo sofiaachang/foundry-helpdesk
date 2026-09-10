@@ -1,0 +1,96 @@
+{
+  "name": "ae3-status-spoken-with-status-and-team",
+  "type": "llm",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "4127",
+      "source_medium": "dtmf"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 9,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_004",
+          "tool_name": "verify_caller",
+          "params_as_json": "{\"digits\":\"4127\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_004",
+          "tool_name": "verify_caller",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 12,
+      "message": "Thanks, you're verified. How can I help?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 16,
+      "message": "What's the status of issue four one two seven?"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 18,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_005",
+          "tool_name": "get_issue_status",
+          "params_as_json": "{\"issue_id\":\"four one two seven\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_005",
+          "tool_name": "get_issue_status",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"Issue four, one, two, seven, VPN drops every hour, is in progress with the Network team. Last updated yesterday.\",\"escalate\":false,\"data\":{\"issue_id\":\"4127\",\"status\":\"in_progress\",\"team\":\"Network\"}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    }
+  ],
+  "success_condition": "The agent's reply states that the issue is in progress and that the Network team is working on it. It reads the identifier one digit at a time (four, one, two, seven) rather than as a whole number, and it invents no other details.",
+  "success_examples": [
+    {
+      "response": "Issue four, one, two, seven, VPN drops every hour, is in progress with the Network team. Last updated yesterday. Anything else?",
+      "type": "success"
+    }
+  ],
+  "failure_examples": [
+    {
+      "response": "Issue forty-one twenty-seven is open.",
+      "type": "failure"
+    },
+    {
+      "response": "That issue has been resolved.",
+      "type": "failure"
+    },
+    {
+      "response": "I can't find that issue.",
+      "type": "failure"
+    }
+  ]
+}

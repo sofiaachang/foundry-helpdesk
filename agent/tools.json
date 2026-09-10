@@ -1,0 +1,44 @@
+{
+  "tools": [
+    {
+      "name": "verify_caller",
+      "type": "webhook",
+      "config": "tool_configs/verify_caller.json"
+    },
+    {
+      "name": "get_issue_status",
+      "type": "webhook",
+      "config": "tool_configs/get_issue_status.json"
+    },
+    {
+      "name": "list_my_open_issues",
+      "type": "webhook",
+      "config": "tool_configs/list_my_open_issues.json"
+    },
+    {
+      "name": "get_team_queue_for_issue",
+      "type": "webhook",
+      "config": "tool_configs/get_team_queue_for_issue.json"
+    },
+    {
+      "name": "count_site_open_issues",
+      "type": "webhook",
+      "config": "tool_configs/count_site_open_issues.json"
+    },
+    {
+      "name": "find_similar_issues",
+      "type": "webhook",
+      "config": "tool_configs/find_similar_issues.json"
+    },
+    {
+      "name": "create_issue",
+      "type": "webhook",
+      "config": "tool_configs/create_issue.json"
+    },
+    {
+      "name": "escalate",
+      "type": "webhook",
+      "config": "tool_configs/escalate.json"
+    }
+  ]
+}

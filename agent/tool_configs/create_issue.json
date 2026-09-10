@@ -1,0 +1,57 @@
+{
+  "type": "webhook",
+  "name": "create_issue",
+  "description": "Create a new help desk issue for the verified caller. Call only after the caller has heard the title, description and priority and said yes. Reporter, team and conversation are set by the service; send only the three fields. Retry at most once on a timeout; never retry on status failed.",
+  "response_timeout_secs": 10,
+  "pre_tool_speech": "force",
+  "execution_mode": "immediate",
+  "interruption_mode": "allow",
+  "tool_error_handling_mode": "hide",
+  "api_schema": {
+    "url": "https://REPLACE-AT-G6.example.invalid/tools/create_issue",
+    "method": "POST",
+    "content_type": "application/json",
+    "request_headers": {
+      "X-Helpdesk-Secret": {
+        "secret_id": "wsec_REPLACE_WITH_ID_OF_helpdesk_shared_secret"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "description": "Tool request body. conversation_id and caller_id are filled by the system, never by the model.",
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "caller_id": {
+          "type": "string",
+          "dynamic_variable": "system__caller_id"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short technical title, 5 to 120 characters."
+        },
+        "description": {
+          "type": "string",
+          "description": "What happens, what was expected, when it started, what was tried; 10 to 2000 characters."
+        },
+        "priority": {
+          "type": "string",
+          "description": "One of low, normal, high. Use high only when the caller cannot work at all.",
+          "enum": [
+            "low",
+            "normal",
+            "high"
+          ]
+        }
+      },
+      "required": [
+        "conversation_id",
+        "title",
+        "description",
+        "priority"
+      ]
+    }
+  }
+}

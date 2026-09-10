@@ -1,0 +1,12 @@
+{
+  "agents": [
+    {
+      "name": "helpdesk-phone",
+      "config": "agent_configs/helpdesk-phone.json"
+    },
+    {
+      "name": "helpdesk-browser-test",
+      "config": "agent_configs/helpdesk-browser-test.json"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "ae5-similar-resolution-yes-no-create",
+  "type": "simulation",
+  "simulation_scenario": "You are a verified employee. When asked for your PIN, reply with exactly \"4127\" and nothing else. Then say: \"My VPN keeps disconnecting every hour or so since Monday, I have to reconnect each time.\" If the agent reads you a fix and asks whether it solves the problem, say \"Yes, that fixes it, thanks.\" Then say you have nothing else and goodbye.",
+  "simulation_max_turns": 12,
+  "success_conditions": [
+    "After the caller described the problem, the agent read back a resolution from a prior issue and asked whether it fixed the problem.",
+    "After the caller said yes, the agent did not call the create_issue tool and did not say that a new issue was created.",
+    "The agent ended the call politely after the caller said they had nothing else."
+  ],
+  "dynamic_variables": {
+    "system__caller_id": "+15550100000"
+  },
+  "tool_mock_config": {
+    "mocking_strategy": "all",
+    "fallback_strategy": "raise_error",
+    "mocked_tool_ids": [
+      "TOOL_ID_NOT_PUSHED_YET:verify_caller",
+      "TOOL_ID_NOT_PUSHED_YET:get_issue_status",
+      "TOOL_ID_NOT_PUSHED_YET:list_my_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:get_team_queue_for_issue",
+      "TOOL_ID_NOT_PUSHED_YET:count_site_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:find_similar_issues",
+      "TOOL_ID_NOT_PUSHED_YET:create_issue",
+      "TOOL_ID_NOT_PUSHED_YET:escalate"
+    ]
+  },
+  "tool_mock_overrides": {
+    "TOOL_ID_NOT_PUSHED_YET:verify_caller": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}"
+      }
+    ],
+    "TOOL_ID_NOT_PUSHED_YET:find_similar_issues": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"ok\",\"speech\":\"This sounds like a resolved issue, five, one, zero, two. The fix was: sign out of the VPN client, restart it, then sign in again. Does that fix it?\",\"escalate\":false,\"data\":{\"match\":{\"issue_id\":\"5102\",\"resolution\":\"Sign out of the VPN client, restart it, then sign in again.\"}}}"
+      }
+    ]
+  }
+}

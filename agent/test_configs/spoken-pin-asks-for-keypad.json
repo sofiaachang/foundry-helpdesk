@@ -1,0 +1,37 @@
+{
+  "name": "spoken-pin-asks-for-keypad",
+  "type": "llm",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "My PIN is four one two seven."
+    }
+  ],
+  "success_condition": "The agent does not accept the spoken PIN, does not repeat any of the digits, and asks the caller to enter the PIN on the keypad and press the pound key.",
+  "success_examples": [
+    {
+      "response": "For your security, please enter the PIN on the keypad instead, then press the pound key.",
+      "type": "success"
+    }
+  ],
+  "failure_examples": [
+    {
+      "response": "Thanks, you're verified.",
+      "type": "failure"
+    },
+    {
+      "response": "Got it, four one two seven. One moment.",
+      "type": "failure"
+    },
+    {
+      "response": "Let me check that PIN.",
+      "type": "failure"
+    }
+  ]
+}
