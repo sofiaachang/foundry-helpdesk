@@ -180,8 +180,11 @@ check_pltr_binary() {
 # adding properties before that fails with ObjectTypeNotFound).
 wait_for_object_type() {
   local api_name="$1" i
-  for i in $(seq 1 24); do
-    if "$PLTR" ontology object-type-get "$ONTOLOGY_RID" "$api_name" --profile "$PROFILE" --format json 2>/dev/null | grep -q '"api_name"'; then
+  for i in $(seq 1 60); do
+    # The list endpoint reflects a new type sooner than the get endpoint, and
+    # add-property resolves through get, so require both before continuing.
+    if "$PLTR" ontology object-type-list "$ONTOLOGY_RID" --profile "$PROFILE" --format json 2>/dev/null | grep -q "\"api_name\": \"$api_name\"" \
+      && "$PLTR" ontology object-type-get "$ONTOLOGY_RID" "$api_name" --profile "$PROFILE" --format json 2>/dev/null | grep -q '"api_name"'; then
       log "object type $api_name is readable"
       return 0
     fi
@@ -329,8 +332,17 @@ add_property() {
 
   if [[ "$APPLY" -eq 1 ]]; then
     args+=(--apply)
-    pltr_run "${args[@]}"
-    log "added property $object_type.$prop_api_name ($prop_type)"
+    local out
+    # Idempotent: a re-run after a partial failure must skip properties that
+    # already exist instead of dying on the CLI's "already has a property" refusal.
+    if out="$(pltr_run "${args[@]}" 2>&1)"; then
+      log "added property $object_type.$prop_api_name ($prop_type)"
+    elif grep -q "already has a property with API name" <<<"$out"; then
+      log "property $object_type.$prop_api_name already present; skipping"
+    else
+      printf '%s\n' "$out" >&2
+      die "add-property failed for $object_type.$prop_api_name"
+    fi
   else
     log "dry-run plan for property $object_type.$prop_api_name:"
     pltr_run "${args[@]}"
