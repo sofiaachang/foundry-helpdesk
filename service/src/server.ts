@@ -6,14 +6,17 @@ import pino from "pino";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import type { FoundryAdapter } from "./foundry/adapter.js";
+import { FoundryDelegatedAuth } from "./foundry/auth.js";
 import { FakeFoundryAdapter } from "./foundry/fake.js";
-import { createOsdkAdapter } from "./foundry/osdk.js";
+import { createOsdkAdapter, tokenProvider } from "./foundry/osdk.js";
 import { buildHandlers } from "./handlers.js";
 import { CreateIdempotency } from "./lib/idempotency.js";
 import { CallerLockout, SessionStore } from "./lib/sessions.js";
 import { Verifier } from "./lib/verification.js";
+import type { FastifyInstance } from "fastify";
 import { pinoOptions } from "./observability/log.js";
 import { wrapAllHandlers } from "./observability/timing.js";
+import { authRoutes } from "./routes/auth.js";
 import { postcallRoutes } from "./routes/postcall.js";
 
 async function main(): Promise<void> {
@@ -25,12 +28,26 @@ async function main(): Promise<void> {
     throw new Error("FOUNDRY_ADAPTER=fake is not allowed when NODE_ENV=production");
   }
 
-  const adapter: FoundryAdapter =
-    config.adapter === "fake"
-      ? FakeFoundryAdapter.fromCsvDir(process.env.SEED_DIR ?? "../ontology/seed")
-      : createOsdkAdapter(config);
-
   const clock = () => Date.now();
+  const extraRoutes: Array<(app: FastifyInstance) => Promise<void>> = [postcallRoutes(config)];
+
+  let adapter: FoundryAdapter;
+  if (config.adapter === "fake") {
+    adapter = FakeFoundryAdapter.fromCsvDir(process.env.SEED_DIR ?? "../ontology/seed");
+  } else {
+    // Delegated user identity (KTD3): the human logs in once via /auth/start;
+    // the adapter reads a fresh access token from this holder per request.
+    const auth = new FoundryDelegatedAuth({
+      stackUrl: config.foundry.stackUrl,
+      clientId: config.foundry.clientId,
+      redirectUrl: config.foundry.redirectUrl,
+      loginToken: config.foundry.loginToken,
+      clock,
+    });
+    extraRoutes.push(authRoutes(auth, { loginToken: config.foundry.loginToken }));
+    adapter = createOsdkAdapter(config, tokenProvider(auth));
+  }
+
   const sessions = new SessionStore({ clock, ttlMs: config.sessionTtlMs });
   const lockout = new CallerLockout({ clock, maxFailures: config.lockoutMaxFailures, windowMs: config.lockoutWindowMs });
   const verifier = new Verifier({ sessions, lockout, lookup: (phone) => adapter.findUserByPhone(phone), pepper: config.pinPepper });
@@ -41,7 +58,7 @@ async function main(): Promise<void> {
     { logger, slowToolsMs: config.slowToolsMs },
   );
 
-  const app = await buildApp({ config, logger, handlers, extraRoutes: [postcallRoutes(config)] });
+  const app = await buildApp({ config, logger, handlers, extraRoutes });
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
   logger.info({ event: "listening", port: config.port, adapter: config.adapter, slow_tools_ms: config.slowToolsMs });

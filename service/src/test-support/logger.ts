@@ -2,18 +2,21 @@
 // what was, and was not, logged.
 
 import type { FastifyBaseLogger } from "fastify";
+import { requestLogUrl } from "../observability/log.js";
 
 type Level = "fatal" | "error" | "warn" | "info" | "debug" | "trace";
 
-// Fastify's pino serializers reduce `req` to method/url/remote address and
-// `res` to statusCode. Mirror that so the test double neither hides a real
-// leak nor invents one by dumping the whole request object.
+// The production req serializer (observability/log.ts) reduces `req` to
+// method/path/remote address, and Fastify's res serializer to statusCode.
+// Mirror that so the test double neither hides a real leak nor invents one by
+// dumping the whole request object. The query-string redaction itself is
+// tested against real pino in observability/__tests__/log.test.ts.
 function serializeLikePino(arg: unknown): unknown {
   if (typeof arg !== "object" || arg === null) return arg;
   const record = { ...(arg as Record<string, unknown>) };
   if (record.req && typeof record.req === "object") {
     const req = record.req as { method?: string; url?: string };
-    record.req = { method: req.method, url: req.url };
+    record.req = { method: req.method, url: requestLogUrl(req.url) };
   }
   if (record.res && typeof record.res === "object") {
     const res = record.res as { statusCode?: number };

@@ -8,11 +8,19 @@ export interface Config {
   port: number;
   logLevel: string;
   adapter: AdapterKind;
+  /**
+   * Public OAuth client (Developer Console client-facing app, PKCE, no client
+   * secret; plan KTD3). The service holds a delegated user token obtained via
+   * /auth/start, so there is deliberately no clientSecret field.
+   */
   foundry: {
     stackUrl: string;
     clientId: string;
-    clientSecret: string;
     ontologyRid: string;
+    /** Must match a redirect URL registered on the app. */
+    redirectUrl: string;
+    /** Per-deploy random value that guards /auth/start and is echoed in the OAuth state. */
+    loginToken: string;
   };
   /** Current secret first, previous second during a rotation. */
   sharedSecrets: string[];
@@ -29,6 +37,26 @@ export class ConfigError extends Error {}
 function required(env: Record<string, string | undefined>, name: string): string {
   const value = env[name]?.trim();
   if (!value) throw new ConfigError(`Missing required environment variable ${name}`);
+  return value;
+}
+
+function requiredHttpUrl(env: Record<string, string | undefined>, name: string): string {
+  const value = required(env, name);
+  let parsed: URL;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new ConfigError(`${name} must be a valid http(s) URL`);
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new ConfigError(`${name} must be a valid http(s) URL`);
+  }
+  return value;
+}
+
+function requiredMinLength(env: Record<string, string | undefined>, name: string, min: number): string {
+  const value = required(env, name);
+  if (value.length < min) throw new ConfigError(`${name} must be at least ${min} characters`);
   return value;
 }
 
@@ -52,16 +80,18 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   const foundry =
     adapter === "osdk"
       ? {
-          stackUrl: required(env, "FOUNDRY_STACK_URL"),
+          stackUrl: requiredHttpUrl(env, "FOUNDRY_STACK_URL"),
           clientId: required(env, "FOUNDRY_CLIENT_ID"),
-          clientSecret: required(env, "FOUNDRY_CLIENT_SECRET"),
           ontologyRid: required(env, "FOUNDRY_ONTOLOGY_RID"),
+          redirectUrl: requiredHttpUrl(env, "FOUNDRY_REDIRECT_URL"),
+          loginToken: requiredMinLength(env, "FOUNDRY_LOGIN_TOKEN", 24),
         }
       : {
           stackUrl: env.FOUNDRY_STACK_URL?.trim() ?? "",
           clientId: "",
-          clientSecret: "",
           ontologyRid: env.FOUNDRY_ONTOLOGY_RID?.trim() ?? "",
+          redirectUrl: "",
+          loginToken: "",
         };
 
   const sharedSecrets = required(env, "HELPDESK_SHARED_SECRET")

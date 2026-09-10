@@ -6,7 +6,7 @@ export function testConfig(overrides: Partial<Config> = {}): Config {
     port: 0,
     logLevel: "silent",
     adapter: "fake",
-    foundry: { stackUrl: "", clientId: "", clientSecret: "", ontologyRid: "" },
+    foundry: { stackUrl: "", clientId: "", ontologyRid: "", redirectUrl: "", loginToken: "" },
     sharedSecrets: ["test-secret-0123456789abcdef"],
     elevenLabsWebhookSecret: "test-webhook-secret",
     pinPepper: "test-pepper",
