@@ -16,7 +16,7 @@ deepened: 2026-09-09
 
 - **Objective:** A caller dials a phone number, verifies by keypad PIN, asks an ElevenLabs voice agent about existing help desk issues, describes a new problem, hears it confirmed back, and the resulting Issue object appears in a Foundry Workshop table with an inspectable Action record. Every agent write goes through one Foundry Action applied by an integration service that holds the only Foundry credential.
 - **Authority hierarchy:** The brief at `voice-helpdesk-foundry-brief.md` owns product behavior. This plan's Product Contract carries it forward with stable IDs. The Planning Contract owns implementation mechanism within those constraints. When linked layers disagree, the R wins on product behavior and the KTD wins on mechanism.
-- **Execution profile:** Three tracks (Foundry, service, agent) that run in parallel after the integration contract is signed off, then converge on an end-to-end dry run. Seven human gates (G1 to G7) are hard stops. Never stub past a gate or invent a credential.
+- **Execution profile:** Three tracks (Foundry, service, agent) that run in parallel after the integration contract is signed off, then converge on an end-to-end dry run. Seven human gates from the brief (G1 to G7, with G4 split into G4a and G4b in Sequencing) are hard stops. Never stub past a gate or invent a credential.
 - **Stop conditions:** Stop and report if G1 shows that a service identity cannot apply Actions on the zap stack; if ElevenLabs keypad capture cannot be made to work on the chosen plan tier; if any secret would have to be committed; or if a unit would require a feature the target environment does not offer.
 - **Tail ownership:** After U12 passes and the human signs off at G7, U13 produces the run sheet and limitations write-up. Learnings go to `ce-compound` per brief section 16.
 
@@ -960,7 +960,7 @@ Behavioural checks that no automated gate proves: AE8 and AE9 are judged by a hu
 - Time to first audio is measured and recorded, whether or not it meets the target.
 - The limitations document covers every item in brief sections 13 and 14.
 - No secret value exists in the repository; `.env.example` lists names only.
-- No gate G1 to G7 was skipped or stubbed; each has a dated sign-off line in the run sheet.
+- No gate (G1, G2, G3, G4a, G4b, G5, G6, G7) was skipped or stubbed; each has a dated sign-off line in the run sheet.
 - Abandoned spike code (the U14 throwaway agent and the U1 probe objects) is removed or clearly marked as spike-only.
 
 **Per unit:** each unit's Verification line is satisfied and its test scenarios pass or, for documentation units, its document exists with the listed content.
