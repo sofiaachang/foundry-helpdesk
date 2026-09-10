@@ -5,8 +5,16 @@
 import pino from "pino";
 import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
+import type { FoundryAdapter } from "./foundry/adapter.js";
+import { FakeFoundryAdapter } from "./foundry/fake.js";
+import { createOsdkAdapter } from "./foundry/osdk.js";
+import { buildHandlers } from "./handlers.js";
+import { CreateIdempotency } from "./lib/idempotency.js";
+import { CallerLockout, SessionStore } from "./lib/sessions.js";
+import { Verifier } from "./lib/verification.js";
 import { pinoOptions } from "./observability/log.js";
-import { defaultHandlers } from "./routes/tools.js";
+import { wrapAllHandlers } from "./observability/timing.js";
+import { postcallRoutes } from "./routes/postcall.js";
 
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -17,12 +25,26 @@ async function main(): Promise<void> {
     throw new Error("FOUNDRY_ADAPTER=fake is not allowed when NODE_ENV=production");
   }
 
-  // U8 supplies the OSDK adapter and U9 the real handlers. Until then the tool
-  // routes answer with the failed envelope, which is honest: nothing is wired.
-  const app = await buildApp({ config, logger, handlers: defaultHandlers() });
+  const adapter: FoundryAdapter =
+    config.adapter === "fake"
+      ? FakeFoundryAdapter.fromCsvDir(process.env.SEED_DIR ?? "../ontology/seed")
+      : createOsdkAdapter(config);
+
+  const clock = () => Date.now();
+  const sessions = new SessionStore({ clock, ttlMs: config.sessionTtlMs });
+  const lockout = new CallerLockout({ clock, maxFailures: config.lockoutMaxFailures, windowMs: config.lockoutWindowMs });
+  const verifier = new Verifier({ sessions, lockout, lookup: (phone) => adapter.findUserByPhone(phone), pepper: config.pinPepper });
+  const idempotency = new CreateIdempotency({ clock, ttlMs: config.sessionTtlMs });
+
+  const handlers = wrapAllHandlers(buildHandlers({ adapter, sessions, lockout, verifier, idempotency, logger, clock }), {
+    logger,
+    slowToolsMs: config.slowToolsMs,
+  });
+
+  const app = await buildApp({ config, logger, handlers, extraRoutes: [postcallRoutes(config)] });
 
   await app.listen({ port: config.port, host: "0.0.0.0" });
-  logger.info({ event: "listening", port: config.port, adapter: config.adapter });
+  logger.info({ event: "listening", port: config.port, adapter: config.adapter, slow_tools_ms: config.slowToolsMs });
 }
 
 main().catch((error: unknown) => {

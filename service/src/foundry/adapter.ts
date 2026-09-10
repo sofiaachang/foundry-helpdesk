@@ -15,10 +15,14 @@ export interface IssueSummary {
 export interface IssueDetail extends IssueSummary {
   teamName: string;
   updatedAt: string;
+  /** For the route's ownership check only (lib/tiers.ts ownsIssue); never placed in a response. */
+  reportedByUserId: string;
 }
 
 export interface TeamQueue {
   teamName: string;
+  /** Reporter of the input issue, for the route's ownership check only; never placed in a response. */
+  reportedByUserId: string;
   openCount: number;
   /** Top items, newest first, excluding the input issue. Never carries reporter names or descriptions. */
   top: IssueSummary[];
