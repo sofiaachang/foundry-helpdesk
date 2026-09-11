@@ -2,6 +2,7 @@
   "name": "voice-helpdesk-service",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@11.23.0",
   "type": "module",
   "description": "Integration service between the ElevenLabs voice agent and Palantir Foundry. Holds the only Foundry credential.",
   "engines": {
