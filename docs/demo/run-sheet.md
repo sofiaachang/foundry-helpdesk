@@ -66,7 +66,18 @@ Dry run 2026-09-10 (four phone calls from the demo caller's mobile to the Twilio
 | AE8 | not run | `SLOW_TOOLS_MS` rehearsal not done | |
 | AE9 | not run | Interruption not rehearsed | |
 
-Post-call webhook: received and signature-verified for every call (`postcall_summary` with the full turn count). The webhook payload carried no time-to-first-byte or first-sentence fields, so the latency report has only the service-side tool timings above.
+Post-call webhook: received and signature-verified for every call (`postcall_summary` with the full turn count). The webhook payload carried no latency fields; the conversation detail API does (`elevenlabs agents conversations get --conversation-id <id>`, `transcript[].conversation_turn_metrics`). Across the eight phone calls of 2026-09-10 (586 seconds, 4,986 credits, LLM `gemini-2.5-flash`, mu-law 8 kHz over Twilio):
+
+| Stage | Median | p90 | Notes |
+|---|---|---|---|
+| Time to first audio after the caller stops | 1.8 s | 2.9 s | 64 turns; one 34 s outlier on a keypad wait |
+| LLM first token | 0.93 s | 1.4 s | 82 turns |
+| LLM first sentence | 0.83 s | 1.4 s | 50 turns |
+| LLM tool-call generation | 1.0 s | 1.3 s | 37 tool turns; the service then adds 0.3 to 0.9 s |
+| Text-to-speech first byte | 0.11 s | 0.14 s | 68 turns |
+| Speech-to-text trailing | 0.04 s | 0.07 s | 32 turns |
+
+Reading: the model is where the time goes (about a second to the first sentence, another second to decide on a tool call), text-to-speech and recognition are near-free, and a tool turn costs the caller roughly LLM decision + service + LLM read-back, which is why pre-tool speech matters on `create_issue`. Only one model configuration was measured; the free plan's credits did not stretch to a comparison.
 
 Call 1 defect, fixed the same evening: the agent said goodbye right after the caller accepted a known resolution instead of asking for anything else (prompt step 3).
 
