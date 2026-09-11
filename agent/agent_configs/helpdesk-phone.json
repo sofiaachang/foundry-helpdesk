@@ -20,14 +20,14 @@
         "max_tokens": -1,
         "ignore_default_personality": true,
         "tool_ids": [
-          "TOOL_ID_NOT_PUSHED_YET:verify_caller",
-          "TOOL_ID_NOT_PUSHED_YET:get_issue_status",
-          "TOOL_ID_NOT_PUSHED_YET:list_my_open_issues",
-          "TOOL_ID_NOT_PUSHED_YET:get_team_queue_for_issue",
-          "TOOL_ID_NOT_PUSHED_YET:count_site_open_issues",
-          "TOOL_ID_NOT_PUSHED_YET:find_similar_issues",
-          "TOOL_ID_NOT_PUSHED_YET:create_issue",
-          "TOOL_ID_NOT_PUSHED_YET:escalate"
+          "tool_7801m275hewwfg1rcz1wadtjhqny",
+          "tool_5601m275hg2wezp99znh05kszwe5",
+          "tool_7401m275hh85eed9dawd1zghmvcp",
+          "tool_8101m275hjf6e2k8prfg0dkexm0z",
+          "tool_2501m275hknhe6vs8x7eq4b99ye4",
+          "tool_1601m275hmzbfjgrgdxxkhe46gsz",
+          "tool_5701m275hpgzfkvvx51a832h8mnn",
+          "tool_2201m275hqp4ffks73q4638bkm5s"
         ],
         "built_in_tools": {
           "end_call": {
@@ -132,67 +132,67 @@
     "testing": {
       "attached_tests": [
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae1-unverified-no-tier1-tool"
+          "test_id": "test_1201m275jzawfgzb21npkgam8x49"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae1-unverified-reply-asks-for-pin"
+          "test_id": "test_4501m275jzgjey1tftkmcws5r97z"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae2-two-failures-then-escalate"
+          "test_id": "test_9401m275jzpsegyaz0b64gpenpcj"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae2-locked-offers-callback-no-third-ask"
+          "test_id": "test_7201m275jzvtfxcbvxpptyjy98sb"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae2-locked-no-third-verify-call"
+          "test_id": "test_3901m275k01ges2veg6c5yvvqzk7"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae2-callback-accepted-calls-escalate"
+          "test_id": "test_9901m275k070fe3s8s4jch09n80s"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae2-after-escalate-calls-end-call"
+          "test_id": "test_4201m275k0f6ez4snx4dp6k8ykvw"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae3-status-spoken-with-status-and-team"
+          "test_id": "test_9601m275k0kzewja1sfcjah6qmr4"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae5-similar-resolution-yes-no-create"
+          "test_id": "test_1501m275k0tre90a5b8csp04fmzz"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae5-similar-resolution-no-proceeds-to-confirmation"
+          "test_id": "test_5601m275k11ffv18fk7ez1t1q6w6"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:spoken-pin-no-verify-call"
+          "test_id": "test_4201m275k16geqhvk42d935kzgr5"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:spoken-pin-asks-for-keypad"
+          "test_id": "test_2301m275k1ckfk5b80vk4ppqt1fa"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae6-confirms-three-fields-then-creates-and-reads-id"
+          "test_id": "test_8401m275k1j9f7xsp82gm0z3tbxt"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae6-no-create-before-explicit-yes"
+          "test_id": "test_1601m275k1qmebxrqjx3zzqz94cd"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae6-create-after-yes-with-three-fields"
+          "test_id": "test_0301m275k1wjfsttc12w3aathmbb"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae6-reads-new-id-digit-by-digit"
+          "test_id": "test_8901m275k22efadafmz9qpf9e06v"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:ae7-create-failed-no-success-wording"
+          "test_id": "test_5901m275k27efsxrewgpt7tgka5c"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:read-timeout-says-unavailable-offers-callback"
+          "test_id": "test_4101m275k2cdfj58yk413298pm2k"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:create-timeout-retries-once"
+          "test_id": "test_0601m275k2k0e2mrq239079rfrtw"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:create-timeout-twice-then-offers-callback"
+          "test_id": "test_0401m275k2rnehw86twzbp4wtjbj"
         },
         {
-          "test_id": "TEST_ID_NOT_PUSHED_YET:verified-reply-never-repeats-digits"
+          "test_id": "test_5601m275k2xmfbaa9myd9rqe76qy"
         }
       ]
     },

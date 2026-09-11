@@ -200,9 +200,12 @@ function writeJson(rel: string, value: unknown) {
   fs.mkdirSync(path.dirname(p), { recursive: true });
   fs.writeFileSync(p, JSON.stringify(value, null, 2) + "\n");
 }
+// The CLI rewrites the registries on push and drops `name`, keeping only
+// `config` and `id` (seen with @elevenlabs/cli 1.2.0), so match on either.
 function mergeRegistry(existing: RegistryEntry[], wanted: RegistryEntry[]): RegistryEntry[] {
-  const byName = new Map(existing.map((e) => [e.name, e]));
-  return wanted.map((w) => ({ ...(byName.get(w.name) ?? {}), ...w }));
+  const byName = new Map(existing.filter((e) => e.name).map((e) => [e.name, e]));
+  const byConfig = new Map(existing.filter((e) => e.config).map((e) => [e.config, e]));
+  return wanted.map((w) => ({ ...(byName.get(w.name) ?? byConfig.get(w.config) ?? {}), ...w }));
 }
 function idOf(entries: RegistryEntry[], name: string, kind: string): string {
   const e = entries.find((x) => x.name === name);

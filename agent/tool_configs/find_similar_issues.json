@@ -8,12 +8,12 @@
   "interruption_mode": "allow",
   "tool_error_handling_mode": "hide",
   "api_schema": {
-    "url": "https://REPLACE-AT-G6.example.invalid/tools/find_similar_issues",
+    "url": "https://helpdesk-service-production-9c2e.up.railway.app/tools/find_similar_issues",
     "method": "POST",
     "content_type": "application/json",
     "request_headers": {
       "X-Helpdesk-Secret": {
-        "secret_id": "wsec_REPLACE_WITH_ID_OF_helpdesk_shared_secret"
+        "secret_id": "tn8xIlDli5KmgwJrvchs"
       }
     },
     "request_body_schema": {

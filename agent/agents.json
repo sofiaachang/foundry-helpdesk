@@ -1,12 +1,12 @@
 {
-  "agents": [
-    {
-      "name": "helpdesk-phone",
-      "config": "agent_configs/helpdesk-phone.json"
-    },
-    {
-      "name": "helpdesk-browser-test",
-      "config": "agent_configs/helpdesk-browser-test.json"
-    }
-  ]
+    "agents": [
+        {
+            "config": "agent_configs/helpdesk-phone.json",
+            "id": "agent_0001m275n333f1ztk380crzvvmxy"
+        },
+        {
+            "config": "agent_configs/helpdesk-browser-test.json",
+            "id": "agent_5101m275n66cen0bybmdzcm08hj7"
+        }
+    ]
 }

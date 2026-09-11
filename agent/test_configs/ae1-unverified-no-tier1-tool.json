@@ -15,7 +15,7 @@
   ],
   "tool_call_parameters": {
     "referenced_tool": {
-      "id": "TOOL_ID_NOT_PUSHED_YET:list_my_open_issues",
+      "id": "tool_7401m275hh85eed9dawd1zghmvcp",
       "type": "webhook"
     },
     "parameters": [],

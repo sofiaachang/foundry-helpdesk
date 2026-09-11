@@ -84,7 +84,7 @@
   ],
   "tool_call_parameters": {
     "referenced_tool": {
-      "id": "TOOL_ID_NOT_PUSHED_YET:create_issue",
+      "id": "tool_5701m275hpgzfkvvx51a832h8mnn",
       "type": "webhook"
     },
     "parameters": [],

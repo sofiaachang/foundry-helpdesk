@@ -15,7 +15,7 @@
   ],
   "tool_call_parameters": {
     "referenced_tool": {
-      "id": "TOOL_ID_NOT_PUSHED_YET:verify_caller",
+      "id": "tool_7801m275hewwfg1rcz1wadtjhqny",
       "type": "webhook"
     },
     "parameters": [],
