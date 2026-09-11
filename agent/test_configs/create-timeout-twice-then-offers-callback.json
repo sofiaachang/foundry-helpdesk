@@ -1,0 +1,58 @@
+{
+  "name": "create-timeout-twice-then-offers-callback",
+  "type": "simulation",
+  "simulation_scenario": "You are a verified employee. When asked for your PIN, reply with exactly \"4127\" and nothing else. Then say: \"Outlook crashes on launch since the update this morning, I can't read any email at all.\" If the agent reads back a title, description and priority and asks whether to create the issue, say \"Yes.\" If the agent offers to have a person call you back, say \"Yes please.\" Then say goodbye.",
+  "simulation_max_turns": 16,
+  "success_conditions": [
+    "The agent called create_issue exactly twice: one original attempt and one retry after the first error.",
+    "After the second failure the agent said it could not complete the request or that the system is unavailable and offered a callback from a person. It never claimed the issue was created and gave no issue number.",
+    "After the caller accepted the callback the agent called escalate, said a person will call back on this number, said goodbye, and ended the call."
+  ],
+  "dynamic_variables": {
+    "system__caller_id": "+15550100000"
+  },
+  "tool_mock_config": {
+    "mocking_strategy": "all",
+    "fallback_strategy": "raise_error",
+    "mocked_tool_ids": [
+      "TOOL_ID_NOT_PUSHED_YET:verify_caller",
+      "TOOL_ID_NOT_PUSHED_YET:get_issue_status",
+      "TOOL_ID_NOT_PUSHED_YET:list_my_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:get_team_queue_for_issue",
+      "TOOL_ID_NOT_PUSHED_YET:count_site_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:find_similar_issues",
+      "TOOL_ID_NOT_PUSHED_YET:create_issue",
+      "TOOL_ID_NOT_PUSHED_YET:escalate"
+    ]
+  },
+  "tool_mock_overrides": {
+    "TOOL_ID_NOT_PUSHED_YET:verify_caller": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}"
+      }
+    ],
+    "TOOL_ID_NOT_PUSHED_YET:find_similar_issues": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"not_found\",\"speech\":\"I couldn't find a similar issue that was already resolved. Would you like me to log a new one?\",\"escalate\":false,\"data\":{\"match\":null}}"
+      }
+    ],
+    "TOOL_ID_NOT_PUSHED_YET:create_issue": [
+      {
+        "parameter_conditions": [],
+        "is_error": true,
+        "mock_result": "Tool call timed out after 10 seconds."
+      }
+    ],
+    "TOOL_ID_NOT_PUSHED_YET:escalate": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"escalate\",\"speech\":\"A person will call you back on this number. Goodbye.\",\"escalate\":true,\"data\":{\"recorded\":true}}"
+      }
+    ]
+  }
+}

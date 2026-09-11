@@ -16,7 +16,7 @@ deepened: 2026-09-09
 
 - **Objective:** A caller dials a phone number, verifies by keypad PIN, asks an ElevenLabs voice agent about existing help desk issues, describes a new problem, hears it confirmed back, and the resulting Issue object appears in a Foundry Workshop table with an inspectable Action record. Every agent write goes through one Foundry Action applied by an integration service that holds the only Foundry credential.
 - **Authority hierarchy:** The brief at `voice-helpdesk-foundry-brief.md` owns product behavior. This plan's Product Contract carries it forward with stable IDs. The Planning Contract owns implementation mechanism within those constraints. When linked layers disagree, the R wins on product behavior and the KTD wins on mechanism.
-- **Execution profile:** Three tracks (Foundry, service, agent) that run in parallel after the integration contract is signed off, then converge on an end-to-end dry run. Seven human gates (G1 to G7) are hard stops. Never stub past a gate or invent a credential.
+- **Execution profile:** Three tracks (Foundry, service, agent) that run in parallel after the integration contract is signed off, then converge on an end-to-end dry run. Seven human gates from the brief (G1 to G7, with G4 split into G4a and G4b in Sequencing) are hard stops. Never stub past a gate or invent a credential.
 - **Stop conditions:** Stop and report if G1 shows that a service identity cannot apply Actions on the zap stack; if ElevenLabs keypad capture cannot be made to work on the chosen plan tier; if any secret would have to be committed; or if a unit would require a feature the target environment does not offer.
 - **Tail ownership:** After U12 passes and the human signs off at G7, U13 produces the run sheet and limitations write-up. Learnings go to `ce-compound` per brief section 16.
 
@@ -134,7 +134,7 @@ Raava's strategy positions this as a reusable pattern for its agentic delivery s
 - AE4. **Two-hop traversal.** Given a verified caller, when they ask who is working on their issue and what else that team has open, then the agent traverses Issue to Team to Issues and answers with a count and top items. Covers R7, R10.
 - AE5. **Known resolution, no new issue.** Given a verified caller describing a problem matching a resolved prior issue, when the agent reads back the resolution and the caller says yes, then no new issue is created. Covers R9.
 - AE6. **New issue created.** Given a verified caller describing a problem with no prior match, when the agent confirms details and applies the Action, then it reads back the new identifier and the object appears in the Workshop table. Covers R11, R13, R14.
-- AE7. **Fail closed.** Given the Action is applied by a service identity lacking permission for the target team, when the agent attempts creation, then the Action fails, the agent reports it could not create the issue and escalates, and never claims success. Covers R12.
+- AE7. **Fail closed.** Given the Action is applied by an identity that fails the Action's submission criteria (the demo user removed from the writers group), when the agent attempts creation, then the Action fails, the agent reports it could not create the issue and escalates, and never claims success. Covers R12.
 - AE8. **Slow tool covered by speech.** Given the service is artificially slowed, when a tool runs, then the agent covers the gap with speech and the experience stays acceptable. Covers R20.
 - AE9. **Interruption.** Given the agent is reading issue details, when the caller interrupts, then the agent stops and responds to the interruption. Covers R10.
 
@@ -188,8 +188,10 @@ Raava's strategy positions this as a reusable pattern for its agentic delivery s
 
 - KTD1. **TypeScript service, Node 22, Fastify, vitest, eslint flat config, pnpm.** Mirrors the `sms_sr` conventions so patterns and tests carry across. Pure logic lives in `service/src/lib/` with no OSDK imports so it is unit-testable; OSDK and HTTP live at the edges.
 - KTD2. **Deploy the service to Railway** (session-settled: user-directed — chosen over hosting inside Foundry: Foundry web hosting is frontend-only and login-gated, and compute modules are callable only from inside Foundry, so any Foundry-hosted endpoint would need the voice vendor to hold a Foundry token, which D2 forbids; also chosen over an ngrok static domain because the demo path must not depend on a laptop tunnel). Local iteration uses an ngrok static domain until G6. Governs R19, R24.
-- KTD3. **Foundry auth is a Developer Console backend-service application with application permissions.** Client credentials via `createConfidentialOauthClient`; the auto-created service user is granted view on the four object types and their datasources plus apply on the create-issue Action, and nothing else. The generated SDK comes from that app (generated and versioned in the Developer Console UI; installed with the npm command and registry token the console shows, recorded in `ontology/README.md` at U1). Least privilege: the service user gets Viewer on a dedicated `voice-helpdesk` project holding only the four backing datasets, the minimum edit role the Action needs on the Issue dataset, and the Action's submission criteria restricted to its group; no Owner or Ontology Manager roles, and no authorization-code grant on the app. A second, restricted app exists solely to demonstrate AE7 by switching the client id; its SDK scope includes the Action but its service user lacks the apply role and the Issue edit role, so AE7 shows a Foundry permission denial at Action-apply level (not per team), never an OAuth scope error. Governs R11, R12.
+- KTD3. **Foundry auth is a Developer Console client-facing application with user permissions, driven by the service through the authorization-code grant with PKCE and `offline_access`.** G1 found that the zap enrollment plan has no client-credentials grant, so no service user can be minted; the brief's risk for this gate fired as designed. The service therefore acts under a delegated user identity: the human logs in once through the service's `/auth/start` route, the service exchanges the code at the Multipass token endpoint, keeps the access token and the rotating refresh token in memory, and refreshes unattended (Foundry rotates refresh tokens on every use and invalidates them after 30 days idle). Railway's disk is ephemeral, so a restart requires one re-authorisation click, listed in the run sheet pre-flight. The app's resource access restrictions still bound the token to the four object types and the Action, which preserves the scoped-credential story. The service calls the Foundry REST API v2 directly with the delegated token (KTD3a); the app's generated SDK is optional because its install token is only available in the console. There is no restricted twin application; fail-closed behaviour for AE7 comes from the Action's submission criteria (KTD4a). The production alternative, a confidential client with a service user, is named in U13. Governs R11, R12.
+- KTD3a. **The Foundry adapter uses the REST API v2, not a generated OSDK package.** The seven calls the service makes (user lookup, object get, search with term filters, link traversal, aggregate count, action apply with returned edits) are all plain REST endpoints, and the SDK's npm registry token is only obtainable in the console. The adapter keeps the same `FoundryAdapter` interface, so a generated SDK can replace it later without touching handlers. Object type, link, and action api names are configurable through `FOUNDRY_ONTOLOGY_NAMES` so the real names from U3 are pasted in without a code change. Governs R5 to R9, R11.
 - KTD4. **Administrator notification is a Foundry Action notification rule** (session-settled: user-directed — chosen over an outbound webhook to a chat channel: no egress, no second write path, configured in Ontology Manager). Recipient is a static Foundry user because notification recipients must be Foundry principals, and the synthetic User objects are not Foundry users. Governs R14.
+- KTD4a. **Fail-closed demo uses the Action's submission criteria.** The create-issue Action requires the submitting user to belong to the group `voice-helpdesk-writers`. For AE7 the human removes their own membership for one call; Foundry evaluates the criterion server-side at submission and refuses, the service maps the failure to `failed` with escalation, and the agent never claims success. Membership is restored before the next call. This replaces the restricted-application mechanism, which needed a second identity the enrollment cannot provide. Governs R12.
 - KTD5. **Tiering is enforced by a tool registry in the service; no tier-2 Action is built** (session-settled: user-directed — chosen over building a tier-2 Action or stating tiering in the write-up only: cheapest way to make D5 visible and testable). Each tool declares a tier; tier-1 tools additionally check that the requested object belongs to the verified caller. A read by identifier of an object the caller does not own returns `not_found` with the same speech as an unknown identifier, so the service is not an existence oracle over the identifier space. `refused_tier` is returned only for tool names or requests that have no tier-1 tool, and it carries an escalation result. Governs R18.
 - KTD6. **Platform-enforced per-caller scoping is a stretch goal that opens after G7** (session-settled: user-directed — chosen over in-scope-from-start and out-of-scope: most impressive capability, most expensive, depends on what G1 permits). Recorded in Deferred to Follow-Up Work with no active unit.
 - KTD7. **PIN capture uses ElevenLabs native keypad capture with** `redact_input: true` **and hash termination; the service stores a peppered PIN hash per User and enforces the two-attempt limit keyed by conversation identifier.** Research shows captured digits reach the agent's language model as a keypad turn and `redact_input` hides them from stored transcripts, logs, and analysis only. The ElevenLabs changelog of 2026-08-31 states that digits passed to tools remain unchanged, so the verify tool-call record holds the PIN. R3 is therefore met for the transcript turn and partially met for the tool-call record; both facts are recorded as a limitation in U13 with the production alternative named: collect the PIN in the telephony layer before the call reaches the agent. The hash is HMAC-SHA256 with a `PIN_PEPPER` secret held only by the service, because a plain salted hash of four digits is cracked offline in milliseconds and the seed CSV is committed. A second counter keyed by caller id locks that number after six failures in fifteen minutes with the same wording as any other failure, so an attacker cannot reset the two-attempt limit by redialling; unknown numbers are counted too. Both counters are in-memory maps in the single service instance and clear on restart; that is acceptable because scale is out of scope and is stated in U13. Governs R3, R4.
@@ -218,7 +220,7 @@ flowchart TB
   Agent -->|post-call webhook, HMAC| Svc
   Svc -->|OSDK reads, client credentials| Foundry[(Foundry ontology on zap)]
   Svc -->|applyAction create-helpdesk-issue| Foundry
-  Svc -.->|restricted client id, AE7 only| Foundry
+  Human[Sofia, one-time login] -.->|authorization code + PKCE, refresh token| Svc
   Foundry -->|Action log + notification rule| Admin[Administrator in Workshop]
   Svc -->|escalation packet, structured log line| Callback[Callback queue read by a human]
 ```
@@ -354,7 +356,7 @@ Tracks B, C, and D run in parallel once G2 clears. U2's tool list, header conven
 ### System-Wide Impact
 
 - **Agent to service:** eight POST tools with a shared-secret header; the body carries conversation and caller identifiers; the envelope is `speech` plus `status`. U2 owns the shape; U9 and U10 consume it. Any envelope change after G2 reopens G2 and touches U2, U9, and U10 together.
-- **Service to Foundry:** one generated OSDK package under two client ids, main (reads plus Action) and restricted (reads only, for AE7). Switching is a manual run-sheet step, never runtime logic.
+- **Service to Foundry:** one generated OSDK package under one public client id; the service holds the delegated user's access and refresh tokens in memory. AE7 is a group-membership change in Foundry, a manual run-sheet step, never runtime logic.
 - **ElevenLabs to service:** the HMAC-verified post-call webhook is the only inbound path besides tools and health.
 - **Escalation exit:** there is no live transfer. The escalate tool records the packet as a structured log line and the agent ends the call after promising a callback; the run sheet shows where to read the packet.
 - **State:** verification state lives only in service memory keyed by conversation id; a restart returns `not_verified` and the agent asks for the PIN again. Foundry holds the only durable state (Issue, Action log); everything else is rebuildable from logs.
@@ -370,7 +372,9 @@ Tracks B, C, and D run in parallel once G2 clears. U2's tool list, header conven
 
 | Risk                                                            | Likelihood | Impact   | Mitigation                                                                  | Owner       |
 | --------------------------------------------------------------- | ---------- | -------- | --------------------------------------------------------------------------- | ----------- |
-| Service user cannot apply Actions on zap, or is over-privileged | Medium     | Critical | U1 probe before any other work; dedicated project; denial by role and scope | U1, U4      |
+| No service identity on zap (confirmed at G1: no client-credentials grant) | Certain | High | Delegated user identity via public client with refresh token (KTD3); AE7 via submission criteria (KTD4a); named as a production gap in U13 | U1, U13 |
+| Refresh token lost on Railway restart or 30-day idle | Medium | Low | One-click re-authorisation in the run sheet pre-flight | U8, U13 |
+| zap network ingress allowlist blocks API calls from non-allowed addresses (observed 2026-09-09 from IP geolocated to Brazil) | Certain | High | Run sheet pre-flight: local machine on an allowed network or VPN; at G6 confirm Railway's region or static egress IPs are allowed, request an ingress change in Control Panel if not; write-up names it as a production integration prerequisite | U6, U12, U13 |
 | Caller id spoofing                                              | High       | Medium   | D3, D4, per-number lockout, stated in write-up                              | U7, U13     |
 | Static PIN replay                                               | Medium     | High     | Accepted for the demo; peppered hash; stated                                | U3, U7, U13 |
 | Brute force across redials                                      | Medium     | Medium   | Per-number lockout window (KTD7)                                            | U7          |
@@ -444,7 +448,7 @@ elevenlabs/
 | U14  | Keypad capture and identifier recognition spike        | throwaway agent under `agent/`, `ontology/README.md`                                         | G4a                                   |
 | U2   | Integration contract                                   | `docs/contract/integration-contract.md`                                                      | U1, U14 (partial draft precedes both) |
 | U3   | Ontology and synthetic seed                            | `ontology/seed/*`, `ontology/README.md`                                                      | G1, U1 findings                       |
-| U4   | Create-issue Action, log, notification, restricted app | `ontology/action-create-helpdesk-issue.md`                                                   | U3, G2                                |
+| U4   | Create-issue Action, log, notification, writers group | `ontology/action-create-helpdesk-issue.md`                                                   | U3, G2                                |
 | U5   | Workshop module                                        | Foundry only, documented in `ontology/README.md`                                             | U4                                    |
 | U6   | Service scaffold and deploy                            | `service/*` root, `src/server.ts`, `src/routes/health.ts`                                    | U2                                    |
 | U7   | Sessions, verification, tiers, guard script            | `service/src/lib/*`, `scripts/check-no-disclosure.sh`                                        | U6                                    |
@@ -461,7 +465,7 @@ elevenlabs/
 
 ### U1. Foundry access spike
 
-**Goal:** Prove the assumption that can invalidate the architecture before any other Foundry work: a service identity on zap can read objects and apply an Action through client credentials, and a restricted identity is denied.
+**Goal:** Prove, before any other Foundry work, that a delegated user token obtained through the Developer Console application can read objects and apply an Action from an external process, that the refresh grant works unattended, and that a submission criterion refuses the Action server-side. (G1 already established that no service identity is available on zap.)
 
 **Requirements:** R11, R12, R24. Cites KTD3.
 
@@ -471,10 +475,10 @@ elevenlabs/
 
 **Approach:**
 
-1. In Developer Console on zap, create the backend-service application with application permissions, generate the SDK for a throwaway object type and Action in a dedicated `voice-helpdesk` project, and grant the service user the least-privilege roles in KTD3. Record every scope string and role the console shows.
-2. Create the restricted application the same way with the Action included in scope but no apply role and no edit role. Record the OAuth error shape of a scope-omitted call as an extra observation only.
-3. From a local script using client credentials, read one object and apply the throwaway Action through each application. Record success, the error shape on a deliberately invalid parameter, and the error shape from the restricted application.
-4. Confirm the Action log names the service user, not the human who created the application, and that no authorization-code grant is enabled.
+1. In Developer Console on zap, create the client-facing application with user permissions in the `voice-helpdesk` project, redirect URL `http://localhost:3000/auth/callback` (the Railway URL is added at G6), and generate the SDK for a throwaway object type and Action. Record the client id, the application RID, every scope string, and the SDK install command the console shows.
+2. From the local service, run the one-time login (`/auth/start`), confirm the callback stores an access token and a refresh token (`offline_access` requested), then force a refresh and confirm rotation.
+3. With that token, read one object and apply the throwaway Action. Record success, the error shape on a deliberately invalid parameter, and the error shape when the throwaway Action's submission criterion (group membership) is not met.
+4. Confirm the Action log names the delegated user and the application, and that a call to an object type outside the application's scope fails.
 5. Paste observed error shapes into the findings with request ids and any token fragments removed.
 
 **Execution note:** This is a spike. Prefer runtime evidence over unit tests; write the findings into `ontology/README.md` and the contract inputs for U2.
@@ -487,7 +491,8 @@ elevenlabs/
 - Reading an object type outside the application's scope fails.
 - Applying the throwaway Action with valid parameters returns edits containing the new primary key, and the Action log submitter is the service user.
 - Applying with a missing required parameter returns a validation failure, not a thrown network error, and the message names the parameter.
-- Covers AE7. Applying through the restricted application returns a permission failure (not only an OAuth scope error) and creates nothing.
+- Covers AE7. Applying while outside the throwaway Action's writers group returns a submission-criteria failure and creates nothing.
+- The refresh grant returns a new access token and a rotated refresh token; the old refresh token is rejected after the one-minute grace.
 
 **Verification:** A findings section in `ontology/README.md` answers each scenario with observed output, and the Goal Capsule stop conditions are either cleared or triggered.
 
@@ -578,7 +583,7 @@ elevenlabs/
 
 ### U4. Create-issue Action, log, notification, restricted app
 
-**Goal:** The only write path: a validated Action with an Action Log and a notification rule, plus the restricted application that demonstrates fail-closed behaviour.
+**Goal:** The only write path: a validated Action with an Action Log, a notification rule, and a submission criterion on a writers group that demonstrates fail-closed behaviour.
 
 **Requirements:** R11, R12, R14. Cites KTD3, KTD4, KTD10.
 
@@ -591,8 +596,8 @@ elevenlabs/
 1. Create the Action `create-helpdesk-issue` with parameters: title (required, length bounded), description (required), priority (allowed values from the value type), reportedBy (object reference to an existing User), assignedTeam (object reference to an existing Team), sourceConversationId (string). Status defaults to open; `issueId` is a required string parameter supplied by the service (KTD16).
 2. Enable "Create action log objects" and generate the log object type.
 3. Add a notification rule with a static recipient (the administrator's Foundry user) and a template that includes title, reporter, and an object link.
-4. Add both Foundry applications' SDK scopes: the main app includes the four object types and the Action; the restricted app has the same scope but its service user holds neither the apply role nor the edit role.
-5. Grant the service users the roles recorded in U1.
+4. Add the four object types and the Action to the application's SDK scope and regenerate the SDK.
+5. Create the group `voice-helpdesk-writers`, add the demo user, and set the Action's submission criteria to require membership (KTD4a).
 
 **Patterns to follow:** `../../Raava Training Program/knowledge-base/foundry/action-types/action-log.md` and `set-up-notification.md`.
 
@@ -601,7 +606,7 @@ elevenlabs/
 - Covers AE6. Applying the Action via the main app with valid parameters creates an Issue, and an Action log object exists for it with the service user as submitter.
 - Applying with an unknown Team reference fails validation and creates nothing.
 - Applying with an empty title fails validation with a message naming the parameter.
-- Covers AE7. Applying via the restricted app fails with a permission error and creates nothing.
+- Covers AE7. Applying while the demo user is outside `voice-helpdesk-writers` fails the submission criteria and creates nothing.
 - After a successful application the administrator's Foundry notifications show the new issue.
 
 **Verification:** `ontology/action-create-helpdesk-issue.md` records the parameter list, validation rules, and the observed error messages for each failure case.
@@ -891,7 +896,7 @@ elevenlabs/
 
 **Approach:**
 
-1. Script the nine calls with the demo phone. For AE7 switch the service to the restricted client id for one call and switch back. For AE8 set `SLOW_TOOLS_MS` to 3000 for one call.
+1. Script the nine calls with the demo phone. For AE7 remove the demo user from `voice-helpdesk-writers` for one call and restore it. For AE8 set `SLOW_TOOLS_MS` to 3000 for one call.
 2. Export the Railway log for the session and run the U15 report script.
 3. Compare against R20's targets and record the result either way.
 4. Hand the evidence table to the human for the G7 dry run.
@@ -916,7 +921,7 @@ elevenlabs/
 
 **Approach:**
 
-1. Run sheet: pre-flight checklist (Railway up and one Foundry read succeeds, Workshop open, phone charged, restricted client id ready for AE7, shared-secret rotation steps), the call script with expected agent lines, where to click in Workshop for the Action log, where to read an escalation packet in the Railway log, the fallback of opening the Action log directly if the notification does not arrive, and the recovery move for each likely failure.
+1. Run sheet: pre-flight checklist (Railway up and one Foundry read succeeds, Workshop open, phone charged, the Foundry login link for re-authorisation after a restart, the writers-group toggle for AE7, shared-secret rotation steps), the call script with expected agent lines, where to click in Workshop for the Action log, where to read an escalation packet in the Railway log, the fallback of opening the Action log directly if the notification does not arrive, and the recovery move for each likely failure.
 2. Limitations: no live human transfer (escalation is a recorded callback request), static shared PIN and its production alternative, keypad digits visible to the language model at inference, the spoken-PIN refusal being prompt-only, caller id spoofing, in-memory session and lockout state cleared by restart, a call dropped after the Action applies leaving an issue the caller never heard, the unreconciled lost-response case (KTD15), shared phone numbers unhandled, keyword rather than semantic search, the chosen retention window with reasoning, what zap permitted versus what was assumed at G1, recognition accuracy findings, and the per-caller scoping stretch goal.
 
 **Test scenarios:** Test expectation: none -- documentation unit; correctness is checked by a dry run against the run sheet.
@@ -957,7 +962,7 @@ Behavioural checks that no automated gate proves: AE8 and AE9 are judged by a hu
 - Time to first audio is measured and recorded, whether or not it meets the target.
 - The limitations document covers every item in brief sections 13 and 14.
 - No secret value exists in the repository; `.env.example` lists names only.
-- No gate G1 to G7 was skipped or stubbed; each has a dated sign-off line in the run sheet.
+- No gate (G1, G2, G3, G4a, G4b, G5, G6, G7) was skipped or stubbed; each has a dated sign-off line in the run sheet.
 - Abandoned spike code (the U14 throwaway agent and the U1 probe objects) is removed or clearly marked as spike-only.
 
 **Per unit:** each unit's Verification line is satisfied and its test scenarios pass or, for documentation units, its document exists with the listed content.

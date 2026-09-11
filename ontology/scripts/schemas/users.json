@@ -1,0 +1,29 @@
+{
+ "fields": [
+  {
+   "name": "userId",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "fullName",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "phoneE164",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "pinHash",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "siteId",
+   "type": "STRING",
+   "nullable": false
+  }
+ ]
+}

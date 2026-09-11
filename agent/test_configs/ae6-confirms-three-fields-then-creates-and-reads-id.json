@@ -1,0 +1,52 @@
+{
+  "name": "ae6-confirms-three-fields-then-creates-and-reads-id",
+  "type": "simulation",
+  "simulation_scenario": "You are a verified employee. When asked for your PIN, reply with exactly \"4127\" and nothing else. Then say: \"The label printer on the third floor prints blank pages since this morning. I already power-cycled it. I can still work, it's not urgent.\" If the agent reads back a title, description and priority and asks whether to create the issue, say \"Yes, go ahead.\" If the agent asks anything else, answer briefly. When the agent gives you an issue number, say thanks and goodbye.",
+  "simulation_max_turns": 12,
+  "success_conditions": [
+    "Before calling create_issue, the agent stated a title, a description, and a priority and asked the caller to confirm.",
+    "The agent called create_issue only after the caller explicitly said yes, and called it exactly once.",
+    "After creation the agent read the new issue identifier one digit at a time, as six, two, zero, three, not as a single number like sixty-two hundred and three.",
+    "The priority the agent proposed was low or normal, not high, because the caller said they can still work."
+  ],
+  "dynamic_variables": {
+    "system__caller_id": "+15550100000"
+  },
+  "tool_mock_config": {
+    "mocking_strategy": "all",
+    "fallback_strategy": "raise_error",
+    "mocked_tool_ids": [
+      "TOOL_ID_NOT_PUSHED_YET:verify_caller",
+      "TOOL_ID_NOT_PUSHED_YET:get_issue_status",
+      "TOOL_ID_NOT_PUSHED_YET:list_my_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:get_team_queue_for_issue",
+      "TOOL_ID_NOT_PUSHED_YET:count_site_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:find_similar_issues",
+      "TOOL_ID_NOT_PUSHED_YET:create_issue",
+      "TOOL_ID_NOT_PUSHED_YET:escalate"
+    ]
+  },
+  "tool_mock_overrides": {
+    "TOOL_ID_NOT_PUSHED_YET:verify_caller": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}"
+      }
+    ],
+    "TOOL_ID_NOT_PUSHED_YET:find_similar_issues": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"not_found\",\"speech\":\"I couldn't find a similar issue that was already resolved. Would you like me to log a new one?\",\"escalate\":false,\"data\":{\"match\":null}}"
+      }
+    ],
+    "TOOL_ID_NOT_PUSHED_YET:create_issue": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"ok\",\"speech\":\"I've created issue six, two, zero, three.\",\"escalate\":false,\"data\":{\"issue_id\":\"6203\"}}"
+      }
+    ]
+  }
+}

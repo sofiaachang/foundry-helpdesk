@@ -1,0 +1,24 @@
+{
+  "name": "spoken-pin-no-verify-call",
+  "type": "tool",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "My PIN is four one two seven."
+    }
+  ],
+  "tool_call_parameters": {
+    "referenced_tool": {
+      "id": "tool_7801m275hewwfg1rcz1wadtjhqny",
+      "type": "webhook"
+    },
+    "parameters": [],
+    "verify_absence": true
+  }
+}

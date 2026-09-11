@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "escalate",
+  "description": "Record a callback request for a person. Works before or after verification. Call when the caller accepts a callback after a lockout, a tool failure, or a request outside your tools. After it returns, say the fixed goodbye sentence and call end_call.",
+  "response_timeout_secs": 10,
+  "pre_tool_speech": "auto",
+  "execution_mode": "immediate",
+  "interruption_mode": "allow",
+  "tool_error_handling_mode": "hide",
+  "api_schema": {
+    "url": "https://helpdesk-service-production-9c2e.up.railway.app/tools/escalate",
+    "method": "POST",
+    "content_type": "application/json",
+    "request_headers": {
+      "X-Helpdesk-Secret": {
+        "secret_id": "tn8xIlDli5KmgwJrvchs"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "description": "Tool request body. conversation_id and caller_id are filled by the system, never by the model.",
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "caller_id": {
+          "type": "string",
+          "dynamic_variable": "system__caller_id"
+        },
+        "reason": {
+          "type": "string",
+          "description": "One sentence, at most 300 characters, saying why a person is needed. Never include digits, a PIN, or the caller's phone number."
+        }
+      },
+      "required": [
+        "conversation_id",
+        "reason"
+      ]
+    }
+  }
+}

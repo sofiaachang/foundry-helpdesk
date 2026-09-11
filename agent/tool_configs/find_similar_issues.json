@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "find_similar_issues",
+  "description": "Search resolved issues for one that matches the problem the caller describes. Call before creating a new issue. Requires a verified caller. Returns at most one match with its resolution, or no match.",
+  "response_timeout_secs": 10,
+  "pre_tool_speech": "auto",
+  "execution_mode": "immediate",
+  "interruption_mode": "allow",
+  "tool_error_handling_mode": "hide",
+  "api_schema": {
+    "url": "https://helpdesk-service-production-9c2e.up.railway.app/tools/find_similar_issues",
+    "method": "POST",
+    "content_type": "application/json",
+    "request_headers": {
+      "X-Helpdesk-Secret": {
+        "secret_id": "tn8xIlDli5KmgwJrvchs"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "description": "Tool request body. conversation_id and caller_id are filled by the system, never by the model.",
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "caller_id": {
+          "type": "string",
+          "dynamic_variable": "system__caller_id"
+        },
+        "description": {
+          "type": "string",
+          "description": "The caller's problem in their own words, 10 to 1000 characters."
+        }
+      },
+      "required": [
+        "conversation_id",
+        "description"
+      ]
+    }
+  }
+}

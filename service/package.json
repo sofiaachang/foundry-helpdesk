@@ -1,0 +1,36 @@
+{
+  "name": "voice-helpdesk-service",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.23.0",
+  "type": "module",
+  "description": "Integration service between the ElevenLabs voice agent and Palantir Foundry. Holds the only Foundry credential.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "RUN_FOUNDRY_INTEGRATION=1 vitest run --dir src/foundry",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && ../scripts/check-no-disclosure.sh"
+  },
+  "dependencies": {
+    "fastify": "^5.3.0",
+    "pino": "^10.3.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.30.0",
+    "@types/node": "^22.15.0",
+    "eslint": "^9.30.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.8.0",
+    "typescript-eslint": "^8.38.0",
+    "vitest": "^3.2.0"
+  }
+}

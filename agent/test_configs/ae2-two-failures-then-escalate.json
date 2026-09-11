@@ -1,0 +1,58 @@
+{
+  "name": "ae2-two-failures-then-escalate",
+  "type": "simulation",
+  "simulation_scenario": "You are calling the IT help desk. You do not know your PIN well. When the agent asks for your PIN, reply with exactly \"1111\" and nothing else (this is you pressing the keypad). If the agent asks you to try again, reply with exactly \"2222\" and nothing else. If the agent offers to have a person call you back, say \"Yes please\". Do not volunteer anything else. If the agent says goodbye, stop.",
+  "simulation_max_turns": 12,
+  "success_conditions": [
+    "The agent asked the caller to enter a PIN at most twice in total: the opening request and exactly one retry. It never asked for a third PIN entry.",
+    "After the second failed attempt the agent offered a callback from a person instead of another attempt.",
+    "After the caller accepted the callback, the agent called the escalate tool, said a person will call back on this number, said goodbye, and ended the call.",
+    "The agent never repeated any digits the caller entered."
+  ],
+  "dynamic_variables": {
+    "system__caller_id": "+15550100000"
+  },
+  "tool_mock_config": {
+    "mocking_strategy": "all",
+    "fallback_strategy": "raise_error",
+    "mocked_tool_ids": [
+      "TOOL_ID_NOT_PUSHED_YET:verify_caller",
+      "TOOL_ID_NOT_PUSHED_YET:get_issue_status",
+      "TOOL_ID_NOT_PUSHED_YET:list_my_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:get_team_queue_for_issue",
+      "TOOL_ID_NOT_PUSHED_YET:count_site_open_issues",
+      "TOOL_ID_NOT_PUSHED_YET:find_similar_issues",
+      "TOOL_ID_NOT_PUSHED_YET:create_issue",
+      "TOOL_ID_NOT_PUSHED_YET:escalate"
+    ]
+  },
+  "tool_mock_overrides": {
+    "TOOL_ID_NOT_PUSHED_YET:verify_caller": [
+      {
+        "parameter_conditions": [
+          {
+            "path": "digits",
+            "eval": {
+              "type": "exact",
+              "expected_value": "1111"
+            }
+          }
+        ],
+        "is_error": false,
+        "mock_result": "{\"status\":\"not_verified\",\"speech\":\"That PIN didn't match. Please try once more, then press pound.\",\"escalate\":false,\"data\":{}}"
+      },
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"locked\",\"speech\":\"I couldn't verify you. I can have a person call you back instead. Would you like that?\",\"escalate\":true,\"data\":{}}"
+      }
+    ],
+    "TOOL_ID_NOT_PUSHED_YET:escalate": [
+      {
+        "parameter_conditions": [],
+        "is_error": false,
+        "mock_result": "{\"status\":\"escalate\",\"speech\":\"A person will call you back on this number. Goodbye.\",\"escalate\":true,\"data\":{\"recorded\":true}}"
+      }
+    ]
+  }
+}

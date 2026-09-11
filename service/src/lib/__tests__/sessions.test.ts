@@ -1,0 +1,229 @@
+import { describe, expect, it } from "vitest";
+import { CallerLockout, SessionStore } from "../sessions.js";
+
+function clockAt(start = 1_000_000) {
+  let now = start;
+  return { now: () => now, advance: (ms: number) => (now += ms) };
+}
+
+describe("SessionStore", () => {
+  it("refuses a missing or malformed conversation id and creates no session", () => {
+    const clock = clockAt();
+    const store = new SessionStore({ clock: clock.now });
+    expect(store.getOrCreate(undefined)).toBeNull();
+    expect(store.getOrCreate("")).toBeNull();
+    expect(store.getOrCreate("short")).toBeNull();
+    expect(store.getOrCreate("has spaces 12345")).toBeNull();
+    expect(store.getOrCreate("x".repeat(129))).toBeNull();
+    expect(store.size).toBe(0);
+  });
+
+  it("creates an unverified session with zero attempts on first sight", () => {
+    const clock = clockAt();
+    const store = new SessionStore({ clock: clock.now });
+    const s = store.getOrCreate("conv_1234567890");
+    expect(s).not.toBeNull();
+    expect(s?.state).toBe("unverified");
+    expect(s?.attempts).toBe(0);
+    expect(s?.createdAt).toBe(1_000_000);
+    expect(store.size).toBe(1);
+  });
+
+  it("returns the same session for the same id and separate sessions for different ids", () => {
+    const clock = clockAt();
+    const store = new SessionStore({ clock: clock.now });
+    const a = store.getOrCreate("conv_aaaaaaaaaa");
+    const b = store.getOrCreate("conv_bbbbbbbbbb");
+    store.recordFailure("conv_aaaaaaaaaa");
+    expect(store.getOrCreate("conv_aaaaaaaaaa")).toBe(a);
+    expect(a?.attempts).toBe(1);
+    expect(b?.attempts).toBe(0);
+  });
+
+  it("treats a session past the TTL as new", () => {
+    const clock = clockAt();
+    const store = new SessionStore({ clock: clock.now, ttlMs: 600_000 });
+    store.getOrCreate("conv_1234567890");
+    store.recordFailure("conv_1234567890");
+    clock.advance(600_000);
+    const fresh = store.getOrCreate("conv_1234567890");
+    expect(fresh?.attempts).toBe(0);
+    expect(fresh?.state).toBe("unverified");
+    expect(fresh?.createdAt).toBe(1_600_000);
+  });
+
+  it("does not expire a session just before the TTL", () => {
+    const clock = clockAt();
+    const store = new SessionStore({ clock: clock.now, ttlMs: 600_000 });
+    store.getOrCreate("conv_1234567890");
+    store.recordFailure("conv_1234567890");
+    clock.advance(599_999);
+    expect(store.getOrCreate("conv_1234567890")?.attempts).toBe(1);
+  });
+
+  it("peek never creates a session", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    expect(store.peek("conv_1234567890")).toBeNull();
+    expect(store.size).toBe(0);
+  });
+
+  it("locks on the second failure and reports the lock", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.getOrCreate("conv_1234567890");
+    expect(store.recordFailure("conv_1234567890")).toEqual({ attempts: 1, locked: false });
+    expect(store.recordFailure("conv_1234567890")).toEqual({ attempts: 2, locked: true });
+    expect(store.peek("conv_1234567890")?.state).toBe("locked");
+  });
+
+  it("binds a user on verification and resets attempts", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.getOrCreate("conv_1234567890");
+    store.recordFailure("conv_1234567890");
+    const s = store.bindVerified("conv_1234567890", { userId: "u1", fullName: "Ada Lovelace", siteId: "s1" });
+    expect(s?.state).toBe("verified");
+    expect(s?.attempts).toBe(0);
+    expect(s?.user).toEqual({ userId: "u1", fullName: "Ada Lovelace", siteId: "s1" });
+  });
+
+  it("marks a session escalated", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.getOrCreate("conv_1234567890");
+    expect(store.markEscalated("conv_1234567890")?.state).toBe("escalated");
+  });
+
+  it("markEscalated never clears a lock", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    store.recordFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")?.state).toBe("locked");
+    expect(store.markEscalated("conv_1234567890")?.state).toBe("locked");
+    expect(store.peek("conv_1234567890")?.state).toBe("locked");
+  });
+
+  it("releaseFailure gives back one attempt and lifts a lock the remaining count no longer justifies", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    expect(store.recordFailure("conv_1234567890")).toEqual({ attempts: 2, locked: true });
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 1, state: "unverified" });
+  });
+
+  it("releaseFailure keeps a lock the remaining count still justifies", () => {
+    const store = new SessionStore({ clock: clockAt().now, maxAttempts: 2 });
+    for (let i = 0; i < 3; i++) store.recordFailure("conv_1234567890");
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 2, state: "locked" });
+  });
+
+  it("releaseFailure never lifts a lock set outright by lock()", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    store.lock("conv_1234567890");
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 0, state: "locked" });
+  });
+
+  it("releaseFailure is a no-op on a verified session and never creates one", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.recordFailure("conv_1234567890");
+    store.bindVerified("conv_1234567890", { userId: "u1", fullName: "Ada Lovelace", siteId: "s1" });
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")).toMatchObject({ attempts: 0, state: "verified" });
+    store.releaseFailure("conv_0000000000");
+    expect(store.peek("conv_0000000000")).toBeNull();
+    expect(store.size).toBe(1);
+  });
+
+  it("releaseFailure never drops attempts below zero", () => {
+    const store = new SessionStore({ clock: clockAt().now });
+    store.getOrCreate("conv_1234567890");
+    store.releaseFailure("conv_1234567890");
+    expect(store.peek("conv_1234567890")?.attempts).toBe(0);
+  });
+
+  it("sweeps expired sessions once the map reaches 256 entries, so size tracks the live count", () => {
+    const clock = clockAt();
+    const store = new SessionStore({ clock: clock.now, ttlMs: 600_000 });
+    for (let i = 0; i < 255; i++) store.getOrCreate(`conv_old_${String(i).padStart(6, "0")}`);
+    clock.advance(600_000);
+    for (let i = 0; i < 45; i++) store.getOrCreate(`conv_new_${String(i).padStart(6, "0")}`);
+    expect(store.size).toBe(45);
+  });
+});
+
+describe("CallerLockout", () => {
+  it("locks a number after maxFailures within the window and leaves other numbers alone", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 6, windowMs: 900_000 });
+    for (let i = 0; i < 5; i++) lockout.recordFailure("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(false);
+    lockout.recordFailure("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(true);
+    expect(lockout.isLocked("+15551230002")).toBe(false);
+  });
+
+  it("expires the lock after the window", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 6, windowMs: 900_000 });
+    for (let i = 0; i < 6; i++) lockout.recordFailure("+15551230001");
+    clock.advance(899_999);
+    expect(lockout.isLocked("+15551230001")).toBe(true);
+    clock.advance(1);
+    expect(lockout.isLocked("+15551230001")).toBe(false);
+    // The window restarts after expiry: one fresh failure is not a lock.
+    lockout.recordFailure("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(false);
+  });
+
+  it("counts the unknown bucket like any other number", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 2, windowMs: 900_000 });
+    lockout.recordFailure("unknown");
+    lockout.recordFailure("unknown");
+    expect(lockout.isLocked("unknown")).toBe(true);
+  });
+
+  it("resets a number on success", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 6, windowMs: 900_000 });
+    for (let i = 0; i < 5; i++) lockout.recordFailure("+15551230001");
+    lockout.reset("+15551230001");
+    lockout.recordFailure("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(false);
+  });
+
+  it("release decrements a number's count and unlocks it; a release to zero deletes the bucket", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 2, windowMs: 900_000 });
+    lockout.recordFailure("+15551230001");
+    lockout.recordFailure("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(true);
+    lockout.release("+15551230001");
+    expect(lockout.isLocked("+15551230001")).toBe(false);
+    expect(lockout.size).toBe(1);
+    lockout.release("+15551230001");
+    expect(lockout.size).toBe(0);
+  });
+
+  it("release on an unknown or expired number is a no-op", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 2, windowMs: 900_000 });
+    lockout.release("+15551230001");
+    expect(lockout.size).toBe(0);
+    lockout.recordFailure("+15551230002");
+    clock.advance(900_000);
+    lockout.release("+15551230002");
+    expect(lockout.size).toBe(0);
+    lockout.recordFailure("+15551230002");
+    expect(lockout.isLocked("+15551230002")).toBe(false);
+  });
+
+  it("sweeps expired buckets once the map reaches 256 entries, so size tracks the live count", () => {
+    const clock = clockAt();
+    const lockout = new CallerLockout({ clock: clock.now, maxFailures: 6, windowMs: 900_000 });
+    for (let i = 0; i < 255; i++) lockout.recordFailure(`+1555000${String(i).padStart(4, "0")}`);
+    clock.advance(900_000);
+    for (let i = 0; i < 45; i++) lockout.recordFailure(`+1555100${String(i).padStart(4, "0")}`);
+    expect(lockout.size).toBe(45);
+  });
+});

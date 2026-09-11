@@ -1,0 +1,100 @@
+{
+  "name": "read-timeout-says-unavailable-offers-callback",
+  "type": "llm",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "4127",
+      "source_medium": "dtmf"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 9,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_012",
+          "tool_name": "verify_caller",
+          "params_as_json": "{\"digits\":\"4127\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_012",
+          "tool_name": "verify_caller",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 12,
+      "message": "Thanks, you're verified. How can I help?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 16,
+      "message": "What's the status of issue four one two seven?"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 18,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_013",
+          "tool_name": "get_issue_status",
+          "params_as_json": "{\"issue_id\":\"4127\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_013",
+          "tool_name": "get_issue_status",
+          "result_value": "Tool call timed out after 10 seconds.",
+          "is_error": true,
+          "tool_has_been_called": true
+        }
+      ]
+    }
+  ],
+  "success_condition": "The agent says the system is unavailable or that it could not complete the request, and offers a callback from a person. It states no issue status, team, or other result, and does not say it will retry.",
+  "success_examples": [
+    {
+      "response": "I couldn't complete that. I can have a person call you back.",
+      "type": "success"
+    },
+    {
+      "response": "The help desk system isn't responding right now. I can have a person call you back. Would you like that?",
+      "type": "success"
+    }
+  ],
+  "failure_examples": [
+    {
+      "response": "Issue four one two seven is in progress.",
+      "type": "failure"
+    },
+    {
+      "response": "Let me try that once more.",
+      "type": "failure"
+    },
+    {
+      "response": "That issue is resolved.",
+      "type": "failure"
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+{
+  "name": "ae2-after-escalate-calls-end-call",
+  "type": "tool",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "1111",
+      "source_medium": "dtmf"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 9,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_001",
+          "tool_name": "verify_caller",
+          "params_as_json": "{\"digits\":\"1111\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_001",
+          "tool_name": "verify_caller",
+          "result_value": "{\"status\":\"not_verified\",\"speech\":\"That PIN didn't match. Please try once more, then press pound.\",\"escalate\":false,\"data\":{}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 12,
+      "message": "That PIN didn't match. Please try once more, then press pound."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 16,
+      "message": "2222",
+      "source_medium": "dtmf"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 18,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_002",
+          "tool_name": "verify_caller",
+          "params_as_json": "{\"digits\":\"2222\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_002",
+          "tool_name": "verify_caller",
+          "result_value": "{\"status\":\"locked\",\"speech\":\"I couldn't verify you. I can have a person call you back instead. Would you like that?\",\"escalate\":true,\"data\":{}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 35,
+      "message": "I couldn't verify you. I can have a person call you back instead. Would you like that?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 39,
+      "message": "Yes please, have someone call me."
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 41,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_003",
+          "tool_name": "escalate",
+          "params_as_json": "{\"reason\":\"Caller could not be verified and asked for a callback.\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_003",
+          "tool_name": "escalate",
+          "result_value": "{\"status\":\"escalate\",\"speech\":\"A person will call you back on this number. Goodbye.\",\"escalate\":true,\"data\":{\"recorded\":true}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 44,
+      "message": "A person will call you back on this number. Goodbye."
+    }
+  ],
+  "tool_call_parameters": {
+    "referenced_tool": {
+      "id": "end_call",
+      "type": "system"
+    },
+    "parameters": [],
+    "verify_absence": false
+  }
+}

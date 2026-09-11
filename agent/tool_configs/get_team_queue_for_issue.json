@@ -1,0 +1,42 @@
+{
+  "type": "webhook",
+  "name": "get_team_queue_for_issue",
+  "description": "For one of the caller's issues, name the team working it and what else that team has open (a count and up to three items). Requires a verified caller.",
+  "response_timeout_secs": 10,
+  "pre_tool_speech": "auto",
+  "execution_mode": "immediate",
+  "interruption_mode": "allow",
+  "tool_error_handling_mode": "hide",
+  "api_schema": {
+    "url": "https://helpdesk-service-production-9c2e.up.railway.app/tools/get_team_queue_for_issue",
+    "method": "POST",
+    "content_type": "application/json",
+    "request_headers": {
+      "X-Helpdesk-Secret": {
+        "secret_id": "tn8xIlDli5KmgwJrvchs"
+      }
+    },
+    "request_body_schema": {
+      "type": "object",
+      "description": "Tool request body. conversation_id and caller_id are filled by the system, never by the model.",
+      "properties": {
+        "conversation_id": {
+          "type": "string",
+          "dynamic_variable": "system__conversation_id"
+        },
+        "caller_id": {
+          "type": "string",
+          "dynamic_variable": "system__caller_id"
+        },
+        "issue_id": {
+          "type": "string",
+          "description": "The caller's issue identifier, digits or words."
+        }
+      },
+      "required": [
+        "conversation_id",
+        "issue_id"
+      ]
+    }
+  }
+}

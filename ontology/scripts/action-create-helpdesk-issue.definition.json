@@ -1,0 +1,177 @@
+{
+  "apiName": "createHelpdeskIssue",
+  "displayMetadata": {
+    "displayName": "Create help desk issue",
+    "description": "Creates a help desk Issue from a verified voice call. Applied only by the integration service.",
+    "icon": null
+  },
+  "status": "EXPERIMENTAL",
+  "parameters": {
+    "issueId": {
+      "id": "issueId",
+      "displayMetadata": {
+        "displayName": "Issue id",
+        "description": "Four-digit id supplied by the service, drawn from 5000-9999. Becomes the primary key of the created Issue.",
+        "typeClasses": []
+      },
+      "type": { "type": "string", "string": {} },
+      "validation": {
+        "required": { "type": "required", "required": {} },
+        "allowedValues": {
+          "type": "regex",
+          "regex": { "pattern": "^\\d{4}$" }
+        }
+      }
+    },
+    "title": {
+      "id": "title",
+      "displayMetadata": {
+        "displayName": "Title",
+        "description": "Issue title, 5 to 120 characters.",
+        "typeClasses": []
+      },
+      "type": { "type": "string", "string": {} },
+      "validation": {
+        "required": { "type": "required", "required": {} },
+        "allowedValues": {
+          "type": "text",
+          "text": { "minLength": 5, "maxLength": 120 }
+        }
+      }
+    },
+    "description": {
+      "id": "description",
+      "displayMetadata": {
+        "displayName": "Description",
+        "description": "Issue description, 10 to 2000 characters.",
+        "typeClasses": []
+      },
+      "type": { "type": "string", "string": {} },
+      "validation": {
+        "required": { "type": "required", "required": {} },
+        "allowedValues": {
+          "type": "text",
+          "text": { "minLength": 10, "maxLength": 2000 }
+        }
+      }
+    },
+    "priority": {
+      "id": "priority",
+      "displayMetadata": {
+        "displayName": "Priority",
+        "description": "One of low, normal, high (value type helpdeskIssuePriority).",
+        "typeClasses": []
+      },
+      "type": { "type": "string", "string": {} },
+      "validation": {
+        "required": { "type": "required", "required": {} },
+        "allowedValues": {
+          "type": "oneOf",
+          "oneOf": {
+            "values": [
+              { "value": { "type": "string", "string": "low" }, "displayMetadata": { "displayName": "Low" } },
+              { "value": { "type": "string", "string": "normal" }, "displayMetadata": { "displayName": "Normal" } },
+              { "value": { "type": "string", "string": "high" }, "displayMetadata": { "displayName": "High" } }
+            ]
+          }
+        }
+      }
+    },
+    "reportedBy": {
+      "id": "reportedBy",
+      "displayMetadata": {
+        "displayName": "Reported by",
+        "description": "The User who reported the issue. Must resolve to an existing HelpdeskUser.",
+        "typeClasses": []
+      },
+      "type": {
+        "type": "objectReference",
+        "objectReference": { "objectTypeId": "HelpdeskUser" }
+      },
+      "validation": {
+        "required": { "type": "required", "required": {} },
+        "allowedValues": {
+          "type": "objectQuery",
+          "objectQuery": {}
+        }
+      }
+    },
+    "assignedTeam": {
+      "id": "assignedTeam",
+      "displayMetadata": {
+        "displayName": "Assigned team",
+        "description": "The Team the issue is routed to. The service always passes 'triage'. Must resolve to an existing Team.",
+        "typeClasses": []
+      },
+      "type": {
+        "type": "objectReference",
+        "objectReference": { "objectTypeId": "Team" }
+      },
+      "validation": {
+        "required": { "type": "required", "required": {} },
+        "allowedValues": {
+          "type": "objectQuery",
+          "objectQuery": {}
+        }
+      }
+    },
+    "sourceConversationId": {
+      "id": "sourceConversationId",
+      "displayMetadata": {
+        "displayName": "Source conversation id",
+        "description": "Conversation identifier from the voice agent contract, when present.",
+        "typeClasses": []
+      },
+      "type": { "type": "string", "string": {} },
+      "validation": {
+        "required": { "type": "notRequired", "notRequired": {} },
+        "allowedValues": {
+          "type": "regex",
+          "regex": { "pattern": "^[A-Za-z0-9_-]{8,128}$" }
+        }
+      }
+    }
+  },
+  "parameterOrdering": [
+    "issueId",
+    "title",
+    "description",
+    "priority",
+    "reportedBy",
+    "assignedTeam",
+    "sourceConversationId"
+  ],
+  "logic": {
+    "rules": [
+      {
+        "type": "addObjectRule",
+        "addObjectRule": {
+          "objectTypeId": "HelpdeskIssue",
+          "propertyValues": {
+            "issueId": { "type": "parameterId", "parameterId": "issueId" },
+            "title": { "type": "parameterId", "parameterId": "title" },
+            "description": { "type": "parameterId", "parameterId": "description" },
+            "priority": { "type": "parameterId", "parameterId": "priority" },
+            "reportedByUserId": { "type": "parameterId", "parameterId": "reportedBy" },
+            "assignedTeamId": { "type": "parameterId", "parameterId": "assignedTeam" },
+            "sourceConversationId": { "type": "parameterId", "parameterId": "sourceConversationId" },
+            "status": { "type": "staticValue", "staticValue": { "type": "string", "string": "open" } },
+            "resolution": { "type": "staticValue", "staticValue": { "type": "null", "null": {} } },
+            "createdAt": { "type": "currentTime", "currentTime": {} },
+            "updatedAt": { "type": "currentTime", "currentTime": {} }
+          }
+        }
+      }
+    ]
+  },
+  "validations": {
+    "always": {
+      "condition": { "type": "true", "true": {} },
+      "displayMetadata": {
+        "failureMessage": "This request could not be validated.",
+        "typeClasses": []
+      }
+    }
+  },
+  "validationsOrdering": ["always"]
+}

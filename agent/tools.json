@@ -1,0 +1,52 @@
+{
+  "tools": [
+    {
+      "name": "verify_caller",
+      "type": "webhook",
+      "config": "tool_configs/verify_caller.json",
+      "id": "tool_7801m275hewwfg1rcz1wadtjhqny"
+    },
+    {
+      "name": "get_issue_status",
+      "type": "webhook",
+      "config": "tool_configs/get_issue_status.json",
+      "id": "tool_5601m275hg2wezp99znh05kszwe5"
+    },
+    {
+      "name": "list_my_open_issues",
+      "type": "webhook",
+      "config": "tool_configs/list_my_open_issues.json",
+      "id": "tool_7401m275hh85eed9dawd1zghmvcp"
+    },
+    {
+      "name": "get_team_queue_for_issue",
+      "type": "webhook",
+      "config": "tool_configs/get_team_queue_for_issue.json",
+      "id": "tool_8101m275hjf6e2k8prfg0dkexm0z"
+    },
+    {
+      "name": "count_site_open_issues",
+      "type": "webhook",
+      "config": "tool_configs/count_site_open_issues.json",
+      "id": "tool_2501m275hknhe6vs8x7eq4b99ye4"
+    },
+    {
+      "name": "find_similar_issues",
+      "type": "webhook",
+      "config": "tool_configs/find_similar_issues.json",
+      "id": "tool_1601m275hmzbfjgrgdxxkhe46gsz"
+    },
+    {
+      "name": "create_issue",
+      "type": "webhook",
+      "config": "tool_configs/create_issue.json",
+      "id": "tool_5701m275hpgzfkvvx51a832h8mnn"
+    },
+    {
+      "name": "escalate",
+      "type": "webhook",
+      "config": "tool_configs/escalate.json",
+      "id": "tool_2201m275hqp4ffks73q4638bkm5s"
+    }
+  ]
+}

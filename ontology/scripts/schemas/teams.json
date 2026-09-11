@@ -1,0 +1,14 @@
+{
+ "fields": [
+  {
+   "name": "teamId",
+   "type": "STRING",
+   "nullable": false
+  },
+  {
+   "name": "name",
+   "type": "STRING",
+   "nullable": false
+  }
+ ]
+}

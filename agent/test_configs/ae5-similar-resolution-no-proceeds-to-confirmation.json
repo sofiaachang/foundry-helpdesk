@@ -1,0 +1,106 @@
+{
+  "name": "ae5-similar-resolution-no-proceeds-to-confirmation",
+  "type": "llm",
+  "chat_history": [
+    {
+      "role": "agent",
+      "time_in_call_secs": 3,
+      "message": "Help desk. I need to verify you first. Please enter your four-digit PIN on the keypad, then press the pound key."
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 7,
+      "message": "4127",
+      "source_medium": "dtmf"
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 9,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_006",
+          "tool_name": "verify_caller",
+          "params_as_json": "{\"digits\":\"4127\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_006",
+          "tool_name": "verify_caller",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"Thanks, you're verified.\",\"escalate\":false,\"data\":{\"verified\":true}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 12,
+      "message": "Thanks, you're verified. How can I help?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 16,
+      "message": "My VPN keeps disconnecting every hour since Monday. I have to reconnect each time."
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 18,
+      "message": null,
+      "tool_calls": [
+        {
+          "type": "webhook",
+          "request_id": "req_007",
+          "tool_name": "find_similar_issues",
+          "params_as_json": "{\"description\":\"VPN disconnects every hour since Monday, has to reconnect each time\"}",
+          "tool_has_been_called": true
+        }
+      ],
+      "tool_results": [
+        {
+          "type": "webhook",
+          "request_id": "req_007",
+          "tool_name": "find_similar_issues",
+          "result_value": "{\"status\":\"ok\",\"speech\":\"This sounds like a resolved issue, five, one, zero, two. The fix was: sign out of the VPN client, restart it, then sign in again. Does that fix it?\",\"escalate\":false,\"data\":{\"match\":{\"issue_id\":\"5102\",\"resolution\":\"Sign out of the VPN client, restart it, then sign in again.\"}}}",
+          "is_error": false,
+          "tool_has_been_called": true
+        }
+      ]
+    },
+    {
+      "role": "agent",
+      "time_in_call_secs": 21,
+      "message": "This sounds like a resolved issue, five, one, zero, two. The fix was: sign out of the VPN client, restart it, then sign in again. Does that fix it?"
+    },
+    {
+      "role": "user",
+      "time_in_call_secs": 25,
+      "message": "No, I already tried that, it still drops."
+    }
+  ],
+  "success_condition": "The agent moves on to creating a new issue: it states or proposes a title, a description, and a priority for the new issue and asks the caller to confirm before creating it. It does not drop the request, does not repeat the same resolution, and does not say the issue has already been created.",
+  "success_examples": [
+    {
+      "response": "Understood. I'll create a new issue. Title: VPN disconnects hourly since Monday. Description: VPN drops about every hour since Monday, reconnecting works but the drop repeats; the sign-out and restart fix did not help. Priority: normal. Shall I create it?",
+      "type": "success"
+    }
+  ],
+  "failure_examples": [
+    {
+      "response": "Sorry to hear that. Is there anything else I can help with?",
+      "type": "failure"
+    },
+    {
+      "response": "Please try signing out of the VPN client and restarting it.",
+      "type": "failure"
+    },
+    {
+      "response": "Done, I've created issue six two zero three.",
+      "type": "failure"
+    }
+  ]
+}

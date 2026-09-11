@@ -1,0 +1,88 @@
+{
+    "tests": [
+        {
+            "config": "test_configs/ae1-unverified-no-tier1-tool.json",
+            "id": "test_1201m275jzawfgzb21npkgam8x49"
+        },
+        {
+            "config": "test_configs/ae1-unverified-reply-asks-for-pin.json",
+            "id": "test_4501m275jzgjey1tftkmcws5r97z"
+        },
+        {
+            "config": "test_configs/ae2-two-failures-then-escalate.json",
+            "id": "test_9401m275jzpsegyaz0b64gpenpcj"
+        },
+        {
+            "config": "test_configs/ae2-locked-offers-callback-no-third-ask.json",
+            "id": "test_7201m275jzvtfxcbvxpptyjy98sb"
+        },
+        {
+            "config": "test_configs/ae2-locked-no-third-verify-call.json",
+            "id": "test_3901m275k01ges2veg6c5yvvqzk7"
+        },
+        {
+            "config": "test_configs/ae2-callback-accepted-calls-escalate.json",
+            "id": "test_9901m275k070fe3s8s4jch09n80s"
+        },
+        {
+            "config": "test_configs/ae2-after-escalate-calls-end-call.json",
+            "id": "test_4201m275k0f6ez4snx4dp6k8ykvw"
+        },
+        {
+            "config": "test_configs/ae3-status-spoken-with-status-and-team.json",
+            "id": "test_9601m275k0kzewja1sfcjah6qmr4"
+        },
+        {
+            "config": "test_configs/ae5-similar-resolution-yes-no-create.json",
+            "id": "test_1501m275k0tre90a5b8csp04fmzz"
+        },
+        {
+            "config": "test_configs/ae5-similar-resolution-no-proceeds-to-confirmation.json",
+            "id": "test_5601m275k11ffv18fk7ez1t1q6w6"
+        },
+        {
+            "config": "test_configs/spoken-pin-no-verify-call.json",
+            "id": "test_4201m275k16geqhvk42d935kzgr5"
+        },
+        {
+            "config": "test_configs/spoken-pin-asks-for-keypad.json",
+            "id": "test_2301m275k1ckfk5b80vk4ppqt1fa"
+        },
+        {
+            "config": "test_configs/ae6-confirms-three-fields-then-creates-and-reads-id.json",
+            "id": "test_8401m275k1j9f7xsp82gm0z3tbxt"
+        },
+        {
+            "config": "test_configs/ae6-no-create-before-explicit-yes.json",
+            "id": "test_1601m275k1qmebxrqjx3zzqz94cd"
+        },
+        {
+            "config": "test_configs/ae6-create-after-yes-with-three-fields.json",
+            "id": "test_0301m275k1wjfsttc12w3aathmbb"
+        },
+        {
+            "config": "test_configs/ae6-reads-new-id-digit-by-digit.json",
+            "id": "test_8901m275k22efadafmz9qpf9e06v"
+        },
+        {
+            "config": "test_configs/ae7-create-failed-no-success-wording.json",
+            "id": "test_5901m275k27efsxrewgpt7tgka5c"
+        },
+        {
+            "config": "test_configs/read-timeout-says-unavailable-offers-callback.json",
+            "id": "test_4101m275k2cdfj58yk413298pm2k"
+        },
+        {
+            "config": "test_configs/create-timeout-retries-once.json",
+            "id": "test_0601m275k2k0e2mrq239079rfrtw"
+        },
+        {
+            "config": "test_configs/create-timeout-twice-then-offers-callback.json",
+            "id": "test_0401m275k2rnehw86twzbp4wtjbj"
+        },
+        {
+            "config": "test_configs/verified-reply-never-repeats-digits.json",
+            "id": "test_5601m275k2xmfbaa9myd9rqe76qy"
+        }
+    ]
+}

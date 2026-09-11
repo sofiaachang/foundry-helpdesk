@@ -13,3 +13,6 @@ coverage/
 .DS_Store
 # rendered agent config with real numbers
 agent/agent_configs/helpdesk.rendered.json
+
+# resumable authoring state, per-stack RIDs
+ontology/scripts/state.env
