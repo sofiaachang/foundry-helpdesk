@@ -64,6 +64,8 @@ node --test ontology/seed/generate-seed.test.ts
 | AE5 known resolution | Issue `2210`, "VPN client disconnects every few minutes on office wifi", `resolved`, team `network`. Shares `vpn`, `client`, `disconnects`, `minutes`, `office`, `wifi`, `reconnect` with the AE5 script. |
 | AE6 new issue | No seed issue shares more than one salient term with "the label printer on the loading dock prints blank pages after the firmware update". |
 
+Extra real callers: set `EXTRA_CALLERS` to a JSON array of `{userId, fullName, siteId, phone, pin}` when running the generator; they are appended after the generated users so every issue stays byte-identical, and they never enter the repo. After a change, re-run the converter and upload `users.parquet` to the clean users dataset and `users.csv` to the raw one (same path, UPDATE transaction, no delete needed); the index picks up the row in about a minute. Second test caller `u-demo2` added 2026-09-10 this way.
+
 Salient terms are lower-cased alphanumeric tokens minus the stop words `the, on, and, i, to, a, after, every, few, my, have, it, is, of, in` (same shape the service's KTD9 search uses; `salientTerms` and `termOverlap` are exported for reuse).
 
 ### Upload the datasets

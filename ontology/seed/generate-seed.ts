@@ -32,6 +32,20 @@ export interface SeedOptions {
   pepper: string;
   demoPhone: string;
   demoPin: string;
+  /**
+   * Additional real callers appended after the generated users, so the random
+   * draws (and therefore every issue) stay byte-identical to a run without
+   * them. Never committed: they come from EXTRA_CALLERS in the environment.
+   */
+  extraCallers?: ExtraCaller[];
+}
+
+export interface ExtraCaller {
+  userId: string;
+  fullName: string;
+  siteId: string;
+  phone: string;
+  pin: string;
 }
 
 export interface SeedOutput {
@@ -445,6 +459,17 @@ export function generateSeed(opts: SeedOptions): SeedOutput {
     };
   });
 
+  for (const extra of opts.extraCallers ?? []) {
+    if (!/^\d{4}$/.test(extra.pin)) throw new Error(`extra caller ${extra.userId}: pin must be exactly four digits`);
+    if (!/^\+[1-9]\d{7,14}$/.test(extra.phone)) throw new Error(`extra caller ${extra.userId}: phone must be E.164`);
+    if (users.some((u) => u.userId === extra.userId)) throw new Error(`extra caller ${extra.userId}: userId already exists`);
+    if (phones.has(extra.phone)) throw new Error(`extra caller ${extra.userId}: phone already used`);
+    if (!SITES.some((site) => site.siteId === extra.siteId)) throw new Error(`extra caller ${extra.userId}: unknown siteId`);
+    phones.add(extra.phone);
+    pins[extra.userId] = extra.pin;
+    users.push({ userId: extra.userId, fullName: extra.fullName, phoneE164: extra.phone, pinHash: hashPin(opts.pepper, extra.userId, extra.pin), siteId: extra.siteId });
+  }
+
   const csv = {
     "sites.csv": toCsv(["siteId", "name"], SITES.map((s) => [s.siteId, s.name])),
     "teams.csv": toCsv(["teamId", "name"], TEAMS.map((t) => [t.teamId, t.name])),
@@ -504,10 +529,13 @@ function main() {
   }
   const demoPhone = process.env.DEMO_CALLER_PHONE || "+15550100000";
   const demoPin = process.env.DEMO_CALLER_PIN || "4321";
-  const result = generateSeed({ seed, pepper, demoPhone, demoPin });
+  // EXTRA_CALLERS: JSON array of {userId, fullName, siteId, phone, pin} for
+  // more real test callers (kept out of the repo like the demo phone).
+  const extraCallers: ExtraCaller[] = process.env.EXTRA_CALLERS ? JSON.parse(process.env.EXTRA_CALLERS) : [];
+  const result = generateSeed({ seed, pepper, demoPhone, demoPin, extraCallers });
   mkdirSync(out, { recursive: true });
   for (const [name, text] of Object.entries(result.csv)) writeFileSync(join(out, name), text, "utf8");
-  console.error(`wrote ${Object.keys(result.csv).join(", ")} to ${resolve(out)} (seed ${seed}, demo phone ${demoPhone})`);
+  console.error(`wrote ${Object.keys(result.csv).join(", ")} to ${resolve(out)} (seed ${seed}, demo phone ${demoPhone}, extra callers ${extraCallers.length})`);
   if (printDemoPin) console.error(`demo caller PIN: ${demoPin}`);
 }
 

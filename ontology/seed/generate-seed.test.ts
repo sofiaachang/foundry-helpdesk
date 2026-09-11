@@ -192,3 +192,20 @@ test("demo caller owns issues covering AE3 and AE4 and the demo phone comes from
   assert.ok(mine.some((i) => i.status === "open"), "demo caller has an open issue");
   assert.ok(mine.some((i) => i.issueId === "4127"), "demo caller owns the KTD16 example issue 4127");
 });
+
+test("extra callers are appended without changing the generated users or issues", () => {
+  const base = generateSeed(OPTS);
+  const extra = { userId: "u-demo2", fullName: "Second Caller", siteId: "site-hq", phone: "+15550109999", pin: "9189" };
+  const withExtra = generateSeed({ ...OPTS, extraCallers: [extra] });
+  assert.deepEqual(withExtra.issues, base.issues);
+  assert.deepEqual(withExtra.users.slice(0, base.users.length), base.users);
+  const added = withExtra.users.at(-1)!;
+  assert.equal(added.userId, "u-demo2");
+  assert.equal(added.phoneE164, "+15550109999");
+  assert.equal(added.pinHash, hashPin(OPTS.pepper, "u-demo2", "9189"));
+  assert.equal(withExtra.pins["u-demo2"], "9189");
+  assert.throws(() => generateSeed({ ...OPTS, extraCallers: [{ ...extra, pin: "12" }] }), /four digits/);
+  assert.throws(() => generateSeed({ ...OPTS, extraCallers: [{ ...extra, userId: "u-demo" }] }), /already exists/);
+  assert.throws(() => generateSeed({ ...OPTS, extraCallers: [{ ...extra, phone: OPTS.demoPhone }] }), /already used/);
+});
+
