@@ -6,7 +6,7 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 
 1. Laptop on a US or Canadian network, VPN off (zap allows US and Canada only): `~/.local/bin/pltr admin user current --profile zap` prints your user.
 2. Railway service up: `curl -s https://helpdesk-service-production-9c2e.up.railway.app/health` returns `{"ok":true,"adapter":"foundry","auth":"ok"}`. If `adapter` is `not-ready`, the deploy predates U3; if `auth` is `logged_out` (after a restart or 30 idle days), open `https://helpdesk-service-production-9c2e.up.railway.app/auth/start?t=<FOUNDRY_LOGIN_TOKEN>` in a browser, sign in, and re-check.
-3. Workshop module open on the Issues table, sorted newest first, with the Action log panel visible.
+3. Workshop module "Help Desk Issues" open (`ri.workshop.main.module.674f1df2-7acd-4b69-93af-1c3ebf2668b9`), sorted Created At descending. There is no Action log panel yet (no action log object type).
 4. Demo phone charged, caller id not withheld, keypad tones enabled.
 5. `voice-helpdesk-writers` group page open in another tab (for the fail-closed scenario).
 6. Do not rehearse the two-wrong-PIN scenario more than twice in fifteen minutes on the demo number; the per-number lockout would trip. A Railway restart clears it, then repeat step 2.
@@ -37,7 +37,7 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 
 ## Where to look
 
-- Workshop: Issues table (newest first) and the Action log timeline for the selected issue: submitter, time, parameters.
+- Workshop: the "Help Desk Issues" table (newest first). Issues created by the agent show reporter `u-demo`, team `triage`, and a same-day Created At. No Action log timeline yet.
 - Railway logs: filter `tool_call` for per-tool timings, `escalation` for callback packets, `postcall_turn` for per-turn metrics.
 - Latency report after the session: export the Railway log to a file and run `node service/scripts/latency-report.ts <file>`.
 
@@ -61,7 +61,7 @@ Dry run 2026-09-10 (four phone calls from the demo caller's mobile to the Twilio
 | AE3 | `conv_9001m2799s4mek59171896bp2hfx` | Issue 4127: open, Platform Engineering, digits read one by one | `get_issue_status` 677 ms |
 | AE4 | same call | Team name, three other open issues listed | `get_team_queue_for_issue` 889 ms |
 | AE5 | same call | VPN resolution read back, caller said yes, nothing created | `find_similar_issues` 315 ms |
-| AE6 | `conv_8001m279h2e0ffybyb6hy7a952nx` | No match; three fields confirmed; issue `8066` created and read back digit by digit | `find_similar_issues` `not_found` 397 ms, `create_issue` `ok` 829 ms; object `8066` in Foundry |
+| AE6 | `conv_8001m279h2e0ffybyb6hy7a952nx` | No match; three fields confirmed; issue `8006` created and read back digit by digit. Later calls the same evening created `9176` and `6944` (priority high) the same way. | `find_similar_issues` `not_found` 397 ms, `create_issue` `ok` 829 ms; rows in the Workshop table |
 | AE7 | not run | Skipped by decision on 2026-09-10 (no submission criterion on the Action yet) | Limitation 3 |
 | AE8 | not run | `SLOW_TOOLS_MS` rehearsal not done | |
 | AE9 | not run | Interruption not rehearsed | |

@@ -384,3 +384,8 @@ run may combine `--object-type/--pk`, `--action/--params`, and `--refresh-test`.
 ### U14 (keypad spike)
 
 _To be filled at U14: keypad timeout value, whether the agent yields a turn on silence, whether stored tool-call parameters show the digits, per-turn metric field names in the post-call payload._
+
+## Workshop module (U5)
+
+Built in the UI on 2026-09-10 in the project's `applications` folder: **Help Desk Issues**, `ri.workshop.main.module.674f1df2-7acd-4b69-93af-1c3ebf2668b9`. Object table on Help Desk Issue with filters for issue id, priority, status, reporter, and team, sorted Created At descending. No Action log timeline: the Action has no action log object type yet.
+
