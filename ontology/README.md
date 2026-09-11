@@ -68,6 +68,19 @@ Salient terms are lower-cased alphanumeric tokens minus the stop words `the, on,
 
 ### Upload the datasets
 
+**Finding (2026-09-10):** a CSV uploaded as a raw file with a schema stamped on it is not readable by the object index (it expects a tabular Parquet dataset). The working layout is: raw CSV uploads under `data/raw/csv uploads`, and typed Parquet clean datasets under `data/clean` that the object types point at. Convert with:
+
+```sh
+~/.local/share/uv/tools/foundry-cli/bin/python ontology/scripts/csv-to-parquet.py ontology/seed/local ontology/seed/local/parquet
+```
+
+then upload each `.parquet` to its clean dataset (`pltr dataset files upload <file> <clean rid> --profile zap`) and set the explicit schema (`pltr dataset schema set <rid> --json-file ontology/scripts/schemas/<name>.json --profile zap`). The clean dataset RIDs are recorded in `ontology/scripts/state.env` as `CLEAN_*_DATASET_RID`; the raw ones as `RAW_*_DATASET_RID`.
+
+Project folder layout on zap (created 2026-09-10): `data/{raw,clean}`, `applications`, `logic`, `ontology/{object types,links,actions}`.
+
+#### Original click path (kept for reference)
+
+
 1. In Foundry on zap, open the **Raava** space and the `voice-helpdesk` project created at U1 (KTD3). Create a folder `Data/Backing Datasets` inside it (mirrors the `Internal Tooling/Data/Ontology/Backing Datasets` convention in `../../foundry-stack-state.md`).
 2. **New > Dataset > Upload files**, one dataset per CSV: `helpdesk_sites`, `helpdesk_teams`, `helpdesk_users`, `helpdesk_issues`. Use the files from `ontology/seed/local/` (real pepper), not the committed ones.
 3. In each dataset's **Schema** tab apply the inferred schema; set every column to `string` except `createdAt` and `updatedAt` on `helpdesk_issues` (`timestamp`). Confirm `issueId`, `userId`, `siteId`, `teamId` are strings so leading zeros and the 4-digit shape survive.
