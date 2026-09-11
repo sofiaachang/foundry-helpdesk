@@ -28,6 +28,7 @@ set -euo pipefail
 
 PLTR="${PLTR:-$HOME/.local/bin/pltr}"
 PROFILE="zap"
+PYTHON="${PYTHON:-$HOME/.local/share/uv/tools/foundry-cli/bin/python}"
 ONT="ri.ontology.main.ontology.1a944941-d587-4363-8314-d6274b7b0381"
 PROJECT_FOLDER_RID="ri.compass.main.folder.9272e104-dd62-4897-9884-ef6a225252da"
 ACTION_API_NAME="createHelpdeskIssue"
@@ -45,9 +46,14 @@ usage() {
 Usage: author-ontology.sh [--apply] SUBCOMMAND
 
 Subcommands:
-  datasets       Create the "Data/Backing Datasets" folder, the four backing
-                 datasets (helpdesk_sites, helpdesk_teams, helpdesk_users,
-                 helpdesk_issues), upload the seed CSVs, and set their schema.
+  folders        Create the project layout: data/{raw/csv uploads,clean},
+                 applications, logic, ontology/{object types,links,actions}.
+  datasets       Run folders, convert the seed CSVs to typed Parquet
+                 (csv-to-parquet.py), then per table create a raw dataset
+                 (data/raw/csv uploads/helpdesk_<name>, the CSV as received)
+                 and a clean dataset (data/clean/helpdesk_<name>, Parquet
+                 plus the explicit schema from schemas/<name>.json). The
+                 object types point at the clean datasets.
   object-types   Upsert the four object types (HelpdeskUser, HelpdeskIssue,
                  Site, Team) and add every non-key property to each.
   links          Upsert the three link types (reportedBy, assignedTeam, site).
@@ -76,10 +82,13 @@ Environment:
                  pepper) and prints a loud warning.
   PLTR           Path to the pltr binary. Default: $HOME/.local/bin/pltr
                  (0.29.1). The stale pltr on PATH (0.13.0) is never used.
+  PYTHON         Interpreter with pyarrow for csv-to-parquet.py. Default:
+                 $HOME/.local/share/uv/tools/foundry-cli/bin/python.
 
 State:
   ontology/scripts/state.env records every RID and object/link/action type id
-  this script creates (HELPDESK_SITES_DATASET_RID=..., OBJECT_TYPE_ID_HELPDESKISSUE=...,
+  this script creates (RAW_/CLEAN_SITES_DATASET_RID=..., HELPDESK_SITES_DATASET_RID=...
+  (= the clean one), OBJECT_TYPE_ID_HELPDESKISSUE=...,
   LINK_TYPE_ID_REPORTEDBY=..., ACTION_TYPE_ID_CREATEHELPDESKISSUE=..., etc). It
   is sourced at the start of every run; anything already recorded there is
   skipped, so re-running any subcommand (including "all") is safe.
@@ -219,66 +228,150 @@ resolve_seed_dir() {
 }
 
 # ---------------------------------------------------------------------------
+# folders
+# ---------------------------------------------------------------------------
+
+# ensure_folder STATE_KEY DISPLAY_NAME PARENT_RID
+# Creates the folder once and records it; prints the rid (or a placeholder in
+# dry-run) on stdout.
+ensure_folder() {
+  local state_key="$1" display_name="$2" parent_rid="$3"
+  if state_has "$state_key"; then
+    log "folder '$display_name' already recorded: ${!state_key}"
+    printf '%s' "${!state_key}"
+    return 0
+  fi
+  if [[ "$APPLY" -eq 1 && "$parent_rid" != "<pending --apply>" ]]; then
+    local out rid
+    out="$(pltr_run folder create "$display_name" --parent-folder "$parent_rid" --format json)"
+    rid="$(json_field "$out" rid)"
+    [[ -n "$rid" ]] || die "folder create '$display_name' did not return an rid: $out"
+    state_set "$state_key" "$rid"
+    log "created folder '$display_name': $rid"
+    printf '%s' "$rid"
+  else
+    log "[dry-run] would run: $PLTR folder create \"$display_name\" --parent-folder $parent_rid --format json --profile $PROFILE"
+    printf '%s' "<pending --apply>"
+  fi
+}
+
+# The project layout Sofia asked for (2026-09-10):
+#   data/{raw,clean}   raw = CSV uploads as received; clean = typed Parquet
+#                      backing datasets the object types point at
+#   applications       Workshop modules
+#   logic              code repositories, AIP Logic
+#   ontology/{object types,links,actions}
+cmd_folders() {
+  check_pltr_binary
+  local data raw clean ontology
+  data="$(ensure_folder PROJECT_DATA_FOLDER_RID data "$PROJECT_FOLDER_RID")"
+  raw="$(ensure_folder PROJECT_RAW_FOLDER_RID raw "$data")"
+  clean="$(ensure_folder PROJECT_CLEAN_FOLDER_RID clean "$data")"
+  ensure_folder DATA_FOLDER_RID "csv uploads" "$raw" >/dev/null
+  ensure_folder PROJECT_APPLICATIONS_FOLDER_RID applications "$PROJECT_FOLDER_RID" >/dev/null
+  ensure_folder PROJECT_LOGIC_FOLDER_RID logic "$PROJECT_FOLDER_RID" >/dev/null
+  ontology="$(ensure_folder PROJECT_ONTOLOGY_FOLDER_RID ontology "$PROJECT_FOLDER_RID")"
+  ensure_folder PROJECT_OBJECT_TYPES_FOLDER_RID "object types" "$ontology" >/dev/null
+  ensure_folder PROJECT_LINKS_FOLDER_RID links "$ontology" >/dev/null
+  ensure_folder PROJECT_ACTIONS_FOLDER_RID actions "$ontology" >/dev/null
+  : "$clean"
+}
+
+# ---------------------------------------------------------------------------
 # datasets
 # ---------------------------------------------------------------------------
 
+# Finding (U3, 2026-09-10): a CSV uploaded as a raw file with a schema stamped
+# on it is not readable by the object index ("not a Parquet file"). So each
+# seed table becomes two datasets:
+#   raw   data/raw/csv uploads/helpdesk_<name>  the CSV as received, no schema
+#   clean data/clean/helpdesk_<name>            typed Parquet + explicit schema
+# The object types point at the clean datasets (HELPDESK_<NAME>_DATASET_RID).
+
+# ensure_dataset STATE_KEY NAME PARENT_RID -> prints rid (or placeholder)
+ensure_dataset() {
+  local state_key="$1" name="$2" parent_rid="$3"
+  if state_has "$state_key"; then
+    log "dataset $name already recorded: ${!state_key}"
+    printf '%s' "${!state_key}"
+    return 0
+  fi
+  if [[ "$APPLY" -eq 1 && "$parent_rid" != "<pending --apply>" ]]; then
+    local out rid
+    out="$(pltr_run dataset create "$name" --parent-folder "$parent_rid" --format json)"
+    rid="$(json_field "$out" rid)"
+    [[ -n "$rid" ]] || die "dataset create $name did not return an rid: $out"
+    state_set "$state_key" "$rid"
+    log "created dataset $name: $rid"
+    printf '%s' "$rid"
+  else
+    log "[dry-run] would run: $PLTR dataset create $name --parent-folder $parent_rid --format json --profile $PROFILE"
+    printf '%s' "<pending --apply>"
+  fi
+}
+
+# upload_once RID FILE MARKER_KEY: uploads FILE to RID unless MARKER_KEY is
+# already recorded (re-running would otherwise stack a second copy of the file
+# on the dataset, and two Parquet files with the same rows double the index).
+upload_once() {
+  local rid="$1" file="$2" marker_key="$3"
+  if state_has "$marker_key"; then
+    log "$(basename "$file") already uploaded to $rid (recorded as $marker_key)"
+    return 0
+  fi
+  if [[ "$APPLY" -eq 1 && "$rid" != "<pending --apply>" ]]; then
+    pltr_run dataset files upload "$file" "$rid"
+    state_set "$marker_key" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    log "uploaded $file to $rid"
+  else
+    log "[dry-run] would run: $PLTR dataset files upload $file $rid --profile $PROFILE"
+  fi
+}
+
 cmd_datasets() {
-  check_pltr_binary
+  cmd_folders
   local seed_dir
   seed_dir="$(resolve_seed_dir)"
   log "using seed directory: $seed_dir"
 
-  local data_folder_rid
-  if state_has DATA_FOLDER_RID; then
-    data_folder_rid="$DATA_FOLDER_RID"
-    log "Data/Backing Datasets folder already recorded: $data_folder_rid"
-  elif [[ "$APPLY" -eq 1 ]]; then
-    local out
-    out="$(pltr_run folder create "Data/Backing Datasets" --parent-folder "$PROJECT_FOLDER_RID" --format json)"
-    data_folder_rid="$(json_field "$out" rid)"
-    [[ -n "$data_folder_rid" ]] || die "folder create did not return an rid: $out"
-    state_set DATA_FOLDER_RID "$data_folder_rid"
-    log "created Data/Backing Datasets folder: $data_folder_rid"
+  local parquet_dir="$seed_dir/parquet"
+  if [[ "$APPLY" -eq 1 ]]; then
+    [[ -x "$PYTHON" ]] || die "PYTHON=$PYTHON is not executable; it must have pyarrow (default: the foundry-cli tool interpreter)"
+    "$PYTHON" "$SCRIPT_DIR/csv-to-parquet.py" "$seed_dir" "$parquet_dir" >&2 || die "csv-to-parquet.py failed"
   else
-    log "[dry-run] would run: $PLTR folder create \"Data/Backing Datasets\" --parent-folder $PROJECT_FOLDER_RID --format json --profile $PROFILE"
-    data_folder_rid="<pending --apply>"
+    log "[dry-run] would run: $PYTHON $SCRIPT_DIR/csv-to-parquet.py $seed_dir $parquet_dir"
   fi
 
-  local name csv_name csv_file state_key rid
-  for name in helpdesk_sites helpdesk_teams helpdesk_users helpdesk_issues; do
-    csv_name="${name#helpdesk_}"
-    csv_file="$seed_dir/$csv_name.csv"
-    state_key="HELPDESK_$(upper "$csv_name")_DATASET_RID"
+  local raw_folder="${DATA_FOLDER_RID:-<pending --apply>}"
+  local clean_folder="${PROJECT_CLEAN_FOLDER_RID:-<pending --apply>}"
 
+  local name up csv_file parquet_file raw_rid clean_rid
+  for name in sites teams users issues; do
+    up="$(upper "$name")"
+    csv_file="$seed_dir/$name.csv"
+    parquet_file="$parquet_dir/$name.parquet"
     [[ -f "$csv_file" ]] || die "seed file not found: $csv_file"
 
-    if state_has "$state_key"; then
-      rid="${!state_key}"
-      log "$name already recorded: $rid"
-    elif [[ "$APPLY" -eq 1 ]]; then
-      local out
-      out="$(pltr_run dataset create "$name" --parent-folder "$data_folder_rid" --format json)"
-      rid="$(json_field "$out" rid)"
-      [[ -n "$rid" ]] || die "dataset create did not return an rid: $out"
-      state_set "$state_key" "$rid"
-      log "created dataset $name: $rid"
-    else
-      log "[dry-run] would run: $PLTR dataset create $name --parent-folder $data_folder_rid --format json --profile $PROFILE"
-      rid="<pending --apply>"
-    fi
+    raw_rid="$(ensure_dataset "RAW_${up}_DATASET_RID" "helpdesk_$name" "$raw_folder")"
+    upload_once "$raw_rid" "$csv_file" "RAW_${up}_UPLOADED_AT"
 
-    if [[ "$APPLY" -eq 1 && "$rid" != "<pending --apply>" ]]; then
-      pltr_run dataset files upload "$csv_file" "$rid"
-      log "uploaded $csv_file to $rid"
-      pltr_run dataset schema set "$rid" --json-file "$SCRIPT_DIR/schemas/$csv_name.json"
-      log "set schema on $rid from $csv_file (inferred; verify createdAt/updatedAt below)"
-      pltr_run dataset files list "$rid"
-      if [[ "$name" == "helpdesk_issues" ]]; then
-        warn "helpdesk_issues: confirm createdAt/updatedAt inferred as TIMESTAMP (README 1 step 3); pltr's --from-csv inference may leave them as STRING, in which case fix the two columns by hand (dataset schema update --add-field, or the Foundry Schema tab) before running 'object-types', since object-type-add-property below declares them TIMESTAMP and the backing column type must match."
+    clean_rid="$(ensure_dataset "CLEAN_${up}_DATASET_RID" "helpdesk_$name" "$clean_folder")"
+    if [[ "$APPLY" -eq 1 && "$clean_rid" != "<pending --apply>" ]]; then
+      [[ -f "$parquet_file" ]] || die "converter did not produce $parquet_file"
+      if ! state_has "CLEAN_${up}_UPLOADED_AT"; then
+        upload_once "$clean_rid" "$parquet_file" "CLEAN_${up}_UPLOADED_AT"
+        pltr_run dataset schema set "$clean_rid" --json-file "$SCRIPT_DIR/schemas/$name.json"
+        log "set explicit schema on $clean_rid from schemas/$name.json"
+        pltr_run dataset files list "$clean_rid"
+      fi
+      # The object types read the clean dataset.
+      if ! state_has "HELPDESK_${up}_DATASET_RID"; then
+        state_set "HELPDESK_${up}_DATASET_RID" "$clean_rid"
       fi
     else
-      log "[dry-run] would run: $PLTR dataset files upload $csv_file $rid --profile $PROFILE"
-      log "[dry-run] would run: $PLTR dataset schema set $rid --from-csv $csv_file --profile $PROFILE"
+      log "[dry-run] would run: $PLTR dataset files upload $parquet_file $clean_rid --profile $PROFILE"
+      log "[dry-run] would run: $PLTR dataset schema set $clean_rid --json-file $SCRIPT_DIR/schemas/$name.json --profile $PROFILE"
+      log "[dry-run] would record HELPDESK_${up}_DATASET_RID=$clean_rid"
     fi
   done
 }
@@ -507,7 +600,7 @@ while [[ $# -gt 0 ]]; do
     usage
     exit 0
     ;;
-  datasets | object-types | links | action | verify | all)
+  folders | datasets | object-types | links | action | verify | all)
     if [[ -n "$SUBCOMMAND" ]]; then
       die "multiple subcommands given ('$SUBCOMMAND' and '$1')"
     fi
@@ -529,6 +622,7 @@ fi
 load_state
 
 case "$SUBCOMMAND" in
+folders) cmd_folders ;;
 datasets) cmd_datasets ;;
 object-types) cmd_object_types ;;
 links) cmd_links ;;

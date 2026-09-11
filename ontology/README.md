@@ -74,9 +74,9 @@ Salient terms are lower-cased alphanumeric tokens minus the stop words `the, on,
 ~/.local/share/uv/tools/foundry-cli/bin/python ontology/scripts/csv-to-parquet.py ontology/seed/local ontology/seed/local/parquet
 ```
 
-then upload each `.parquet` to its clean dataset (`pltr dataset files upload <file> <clean rid> --profile zap`) and set the explicit schema (`pltr dataset schema set <rid> --json-file ontology/scripts/schemas/<name>.json --profile zap`). The clean dataset RIDs are recorded in `ontology/scripts/state.env` as `CLEAN_*_DATASET_RID`; the raw ones as `RAW_*_DATASET_RID`.
+`author-ontology.sh datasets --apply` does the whole flow: it creates the project folder layout (`folders` step), runs the converter, then per table creates the raw dataset (`data/raw/csv uploads/helpdesk_<name>`, the CSV as received) and the clean dataset (`data/clean/helpdesk_<name>`, the Parquet file plus the explicit schema from `ontology/scripts/schemas/<name>.json`). Uploads are recorded in `state.env` (`RAW_*_UPLOADED_AT`, `CLEAN_*_UPLOADED_AT`) so a re-run never stacks a second copy of a file on a dataset; delete the marker to re-upload after a seed change. The clean dataset RIDs are recorded as `CLEAN_*_DATASET_RID` and copied to `HELPDESK_*_DATASET_RID`, which the object types read; the raw ones as `RAW_*_DATASET_RID`.
 
-Project folder layout on zap (created 2026-09-10): `data/{raw,clean}`, `applications`, `logic`, `ontology/{object types,links,actions}`.
+Project folder layout on zap (created 2026-09-10 by the `folders` step): `data/{raw,clean}`, `applications`, `logic`, `ontology/{object types,links,actions}`. Right after `object-types --apply`, `object-list` returns `OntologySyncingObjectTypes` for several minutes while the index is built from the clean datasets; that is expected, not an error.
 
 #### Original click path (kept for reference)
 
