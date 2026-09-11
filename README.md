@@ -39,7 +39,7 @@ Execution stops at each of these. Nothing is stubbed past them.
 | G4a | Done 2026-09-09: ElevenLabs workspace on the free plan (15 agent minutes a month; Starter if rehearsals exhaust it). Still to do at U10 push: create the workspace secret `helpdesk_shared_secret`. | U14, U15 secret |
 | G5 | Done 2026-09-09: a Twilio trial number is imported into ElevenLabs and attached to an existing agent. Decision: create the new agent `helpdesk-phone` from `agent/` and move the number to it at U11; leave the existing agent untouched. | U14, U11 |
 | G4b | After the keypad spike, decide conversation and audio retention (recommendation in plan KTD14). | U10 push |
-| G6 | Deploy `service/` to Railway from this repo (a US region), set the env vars from `service/.env.example`, record the HTTPS URL, paste it and the secret into the agent tools. Ingress allowlist confirmed 2026-09-10: countries United States and Canada. A US-region Railway deploy passes; no change request needed. The laptop must not be on a VPN exiting elsewhere. | U10 tool URLs |
+| G6 | Cleared 2026-09-10. Railway project `voice-helpdesk`, service `helpdesk-service`, region sfo, URL `https://helpdesk-service-production-9c2e.up.railway.app` (`/health` returns `{ok, adapter: foundry, auth}`). Env vars set from `service/.env.example`; secrets were set through stdin and never printed. Deploys run with `railway up --service helpdesk-service --ci` from the repo root (the GitHub source is connected but push events do not reach Railway; see CLAUDE.md). Ingress allowlist: United States and Canada, so a US-region deploy passes. | U10 tool URLs |
 | G7 | Run the full call yourself and sign off before any demo polish. | U13 |
 
 ## Conventions

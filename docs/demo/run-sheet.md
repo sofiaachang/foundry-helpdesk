@@ -5,7 +5,7 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 ## Pre-flight (15 minutes before)
 
 1. Laptop on a US or Canadian network, VPN off (zap allows US and Canada only): `~/.local/bin/pltr admin user current --profile zap` prints your user.
-2. Railway service up: `curl -s https://<railway-url>/health` returns `{"ok":true,"adapter":"foundry","auth":"ok"}`. If `adapter` is `not-ready`, the deploy predates U3; if `auth` is `logged_out` (after a restart or 30 idle days), open `https://<railway-url>/auth/start?t=<FOUNDRY_LOGIN_TOKEN>` in a browser, sign in, and re-check.
+2. Railway service up: `curl -s https://helpdesk-service-production-9c2e.up.railway.app/health` returns `{"ok":true,"adapter":"foundry","auth":"ok"}`. If `adapter` is `not-ready`, the deploy predates U3; if `auth` is `logged_out` (after a restart or 30 idle days), open `https://helpdesk-service-production-9c2e.up.railway.app/auth/start?t=<FOUNDRY_LOGIN_TOKEN>` in a browser, sign in, and re-check.
 3. Workshop module open on the Issues table, sorted newest first, with the Action log panel visible.
 4. Demo phone charged, caller id not withheld, keypad tones enabled.
 5. `voice-helpdesk-writers` group page open in another tab (for the fail-closed scenario).
@@ -64,4 +64,4 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 | AE8 | | | |
 | AE9 | | | |
 
-Gate sign-offs: G1 2026-09-09 (no service identity; delegated user), G2 2026-09-10 (contract signed), G3 not applicable (public client), G4a 2026-09-09, G4b pending, G5 2026-09-09, G6 pending, G7 pending.
+Gate sign-offs: G1 2026-09-09 (no service identity; delegated user), G2 2026-09-10 (contract signed), G3 not applicable (public client), G4a 2026-09-09, G4b pending, G5 2026-09-09, G6 2026-09-10, G7 pending.
