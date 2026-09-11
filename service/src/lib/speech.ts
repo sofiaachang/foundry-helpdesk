@@ -66,7 +66,7 @@ function spokenItems(items: SpokenIssue[], titleMax = MAX_TITLE_CHARS): string {
 function offer(count: number, shown: number): string {
   const more = count - shown;
   if (more <= 0) return "";
-  return ` There ${more === 1 ? "is" : "are"} ${countWord(more)} ${plural(more, "more")}. Would you like to hear ${more === 1 ? "it" : "them"}?`;
+  return ` There ${more === 1 ? "is" : "are"} ${countWord(more)} more. Would you like to hear ${more === 1 ? "it" : "them"}?`;
 }
 
 /** Shrinks titles progressively until the sentence fits, then hard-clamps as a last resort. */

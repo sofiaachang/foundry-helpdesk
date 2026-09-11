@@ -50,18 +50,24 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 | Notification did not arrive | Open the Action log entry directly from the issue in Workshop |
 | Foundry calls fail with "request blocked" | Railway egress not on the ingress allowlist; see the G6 note in the README |
 
-## Evidence table (pending)
+## Evidence table
 
-| AE | Conversation id | Outcome | Screenshot |
+Dry run 2026-09-10 (four phone calls from the demo caller's mobile to the Twilio number, plus a shell run of every tool against the live service).
+
+| AE | Conversation id | Outcome | Evidence |
 |---|---|---|---|
-| AE1 | | | |
-| AE2 | | | |
-| AE3 | | | |
-| AE4 | | | |
-| AE5 | | | |
-| AE6 | | | |
-| AE7 | | | |
-| AE8 | | | |
-| AE9 | | | |
+| AE1 | shell run | Read tools before verification return `not_verified` with the fixed PIN sentence | Railway `tool_call` lines, `status="not_verified"` |
+| AE2 | call 4 | Wrong PIN twice: retry sentence, then locked sentence and callback offer; caller declined; goodbye | `verify_caller` `not_verified` 606 ms, then `locked` 320 ms |
+| AE3 | `conv_9001m2799s4mek59171896bp2hfx` | Issue 4127: open, Platform Engineering, digits read one by one | `get_issue_status` 677 ms |
+| AE4 | same call | Team name, three other open issues listed | `get_team_queue_for_issue` 889 ms |
+| AE5 | same call | VPN resolution read back, caller said yes, nothing created | `find_similar_issues` 315 ms |
+| AE6 | `conv_8001m279h2e0ffybyb6hy7a952nx` | No match; three fields confirmed; issue `8066` created and read back digit by digit | `find_similar_issues` `not_found` 397 ms, `create_issue` `ok` 829 ms; object `8066` in Foundry |
+| AE7 | not run | Skipped by decision on 2026-09-10 (no submission criterion on the Action yet) | Limitation 3 |
+| AE8 | not run | `SLOW_TOOLS_MS` rehearsal not done | |
+| AE9 | not run | Interruption not rehearsed | |
 
-Gate sign-offs: G1 2026-09-09 (no service identity; delegated user), G2 2026-09-10 (contract signed), G3 not applicable (public client), G4a 2026-09-09, G4b pending, G5 2026-09-09, G6 2026-09-10, G7 pending.
+Post-call webhook: received and signature-verified for every call (`postcall_summary` with the full turn count). The webhook payload carried no time-to-first-byte or first-sentence fields, so the latency report has only the service-side tool timings above.
+
+Call 1 defect, fixed the same evening: the agent said goodbye right after the caller accepted a known resolution instead of asking for anything else (prompt step 3).
+
+Gate sign-offs: G1 2026-09-09 (no service identity; delegated user), G2 2026-09-10 (contract signed), G3 not applicable (public client), G4a 2026-09-09, G4b pending, G5 2026-09-09, G6 2026-09-10, G7 2026-09-10 (AE2 to AE6 live; AE7 to AE9 not run).

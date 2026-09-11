@@ -84,7 +84,7 @@ describe("myOpenIssuesSpeech", () => {
     expect(s).toContain("4, 1, 2, 7");
     expect(s).toContain("3, 8, 3, 7");
     expect(s).toContain("4, 2, 8, 7");
-    expect(s).toContain("two more");
+    expect(s).toContain("two more.");
     expect(s.length).toBeLessThan(MAX_SPEECH_CHARS);
   });
 
@@ -110,7 +110,7 @@ describe("teamQueueSpeech", () => {
     expect(s).toContain("4, 1, 2, 7");
     expect(s).toContain("4, 2, 8, 7");
     expect(s).not.toContain("1, 0, 1, 5");
-    expect(s).toContain("two more");
+    expect(s).toContain("two more.");
     expect(s).not.toContain("Dana");
   });
 

@@ -306,6 +306,12 @@ function toolTest(
     name,
     type: "tool",
     chat_history,
+    // Known gap (2026-09-10): the evaluator reports "Parameter path 'x' not
+    // found" for these paths even when the recorded tool call carries the
+    // field; "$.x" fails the same way. The three parameter-asserting tests
+    // (ae6-create-after-yes-with-three-fields, create-timeout-retries-once,
+    // ae2-callback-accepted-calls-escalate) are therefore expected to fail
+    // until the path form is documented; verify_absence tests are unaffected.
     tool_call_parameters: { referenced_tool: referenced, parameters, verify_absence },
   };
 }
