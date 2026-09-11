@@ -2,11 +2,15 @@
     "agents": [
         {
             "config": "agent_configs/helpdesk-phone.json",
-            "id": "agent_0001m275n333f1ztk380crzvvmxy"
+            "id": "agent_0001m275n333f1ztk380crzvvmxy",
+            "branch_id": "agtbrch_3901m275n5h8ejptsa3sxfkak9az",
+            "version_id": "agtvrsn_5901m276jjygejjaz7x0jcrtap59"
         },
         {
             "config": "agent_configs/helpdesk-browser-test.json",
-            "id": "agent_5101m275n66cen0bybmdzcm08hj7"
+            "id": "agent_5101m275n66cen0bybmdzcm08hj7",
+            "branch_id": "agtbrch_9001m275n7gdf3dbt2fxvnpypp9d",
+            "version_id": "agtvrsn_4501m276jpjgfgkarw83n447263y"
         }
     ]
 }
