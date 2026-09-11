@@ -12,6 +12,13 @@ Plan U13. Follow top to bottom. Items marked "pending" are filled after the dry 
 6. Do not rehearse the two-wrong-PIN scenario more than twice in fifteen minutes on the demo number; the per-number lockout would trip. A Railway restart clears it, then repeat step 2.
 7. Shared secret rotation, only if needed: set `HELPDESK_SHARED_SECRET=new,old` on Railway, update the ElevenLabs workspace secret, then drop the old value.
 
+## Secrets at deploy time
+
+- `PIN_PEPPER`: the value in `ontology/seed/local/PIN_PEPPER` (local, gitignored). The uploaded users dataset was hashed with it on 2026-09-10; changing it means regenerating and re-uploading the seed.
+- `HELPDESK_SHARED_SECRET`: generate once (`openssl rand -hex 24`), set on Railway and as the ElevenLabs workspace secret `helpdesk_shared_secret`.
+- `FOUNDRY_LOGIN_TOKEN`: generate once (`openssl rand -hex 24`), set on Railway; used only in the `/auth/start?t=` link.
+- `ELEVENLABS_WEBHOOK_SECRET`: from the post-call webhook settings in ElevenLabs.
+
 ## Call script
 
 | Step | You say or do | Expected agent line (paraphrase) | Evidence |
