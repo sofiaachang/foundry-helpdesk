@@ -16,15 +16,17 @@ Stack: ElevenLabs Agents, Twilio, a TypeScript service on Railway, Palantir Foun
 
 [repo or demo video link]
 
-## Version B (about 90 words)
+## Version B (about 120 words)
 
 Built a phone help desk agent on ElevenLabs that reads and writes to a Palantir Foundry ontology.
 
-Keypad PIN, never spoken. Ticket status, team queue, and known fixes by voice. New issues created through a governed Foundry Action with the conversation id on the row.
+Most help desk calls are three questions: what is the status of my ticket, has anyone seen this before, can you log this. The agent answers the first two before it ever creates anything.
+
+Caller id picks the account; a keypad PIN tied to that account proves it. Right digits from the wrong phone get nothing, and the PIN never enters a transcript.
+
+New issues go in through a Foundry Action, so every write carries permissions, parameter validation, and who, when, and with what. The agent never holds a Foundry credential.
 
 Median 1.8 s to first audio; the model is 90% of that.
-
-The hard part was never the voice. It was the write path: who is allowed to create the ticket, and how you prove it afterwards.
 
 Twenty-four documented limitations. Demo video soon.
 
