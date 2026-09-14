@@ -36,7 +36,7 @@ First audio in 1.8 seconds, median. The model is nearly all of it.
 
 Twenty-four documented limitations. Demo video soon.
 
-What would stop this from reaching production at your company?
+This started as curiosity about whether ElevenLabs and Foundry would fit together. They do, and the fit is better than I expected: ElevenLabs makes the conversation feel effortless, and Foundry makes the outcome trustworthy. Neither can do the other's job, and a help desk needs both.
 
 #VoiceAI #Palantir #ElevenLabs
 
@@ -48,5 +48,5 @@ What would stop this from reaching production at your company?
 
 - Version A works as the caption for the demo video; version B works alone or as a comment thread opener.
 - If the repo link goes in, the README's gate table and `docs/demo/limitations.md` are the two pages a reader will open first; both are current.
-- Per the social skill: hook in the first line (it is all that shows before "see more"), link in the first comment rather than the body, 3 to 5 hashtags at the end, close with a question. Tag ElevenLabs and Palantir only if you want the reach.
+- Per the social skill: hook in the first line (it is all that shows before "see more"), link in the first comment rather than the body, 3 to 5 hashtags at the end. Closes with a takeaway rather than a question, by choice. Tag ElevenLabs and Palantir only if you want the reach.
 
