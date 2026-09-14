@@ -16,23 +16,31 @@ Stack: ElevenLabs Agents, Twilio, a TypeScript service on Railway, Palantir Foun
 
 [repo or demo video link]
 
-## Version B (about 230 words)
+## Version B (about 260 words, Story Post structure)
 
-I gave a help desk a phone number, and the phone number can write to Palantir Foundry.
+I built a phone line that can open tickets in Palantir Foundry. The hard part was not the voice.
 
-Every help desk hears the same three questions. Where is my ticket? Has anyone fixed this before? Can you log this? I built a voice agent on ElevenLabs that answers all three on one call, and only opens a ticket when the first two did not already solve the problem.
+Every help desk hears the same three questions. Where is my ticket? Has anyone fixed this before? Can you log this? I wanted a voice agent that answers all three in one call and only opens a ticket when the first two did not already solve the problem.
 
-A call goes like this. You dial in and the agent asks for your four-digit PIN on the keypad. Your PIN belongs to the phone number on your account, so it only works from that phone, and because you key it in rather than say it, it never lands in a transcript. Once you are through, you can ask about a ticket by number, hear who is working it and what else that team has open, or describe a problem and get the known fix read back to you. If nothing matches, the agent repeats the title, description, and priority, creates the ticket, and reads the new id back to you one digit at a time.
+Here is what a call looks like.
+
+You dial in and the agent asks for your four-digit PIN on the keypad. That PIN belongs to the phone number on your account, so it only works from your phone. Someone with your PIN and a different number gets nowhere. And because you key it in instead of saying it, it never lands in a transcript.
+
+Once you are through, you can ask about a ticket by number, hear who is working on it and what else that team has open, or describe a problem and get the known fix read back to you. If nothing matches, the agent repeats the title, description, and priority, creates the ticket, and reads the new id back one digit at a time.
 
 On the other side, an administrator watches new tickets arrive in a Workshop app, each one carrying the conversation that created it. High-priority tickets also send an email the moment they are created. Everything else waits for the next look at the queue.
 
-Under the hood, the agent runs on a Twilio number and calls a small TypeScript service on Railway. That service holds the only Foundry credential, enforces verification and rate limits, and reads the ontology through its API. The one write is a Foundry Action, which means every ticket arrives with permissions checked, parameters validated, and a record of who created it, when, and with what.
+Under the hood: an ElevenLabs agent on a Twilio number calls a small TypeScript service on Railway. That service holds the only Foundry credential, enforces verification and rate limits, and reads the ontology through its API. The one write is a Foundry Action, so every ticket arrives with permissions checked, parameters validated, and a record of who created it, when, and with what.
 
-First audio in 1.8 seconds, median. The model accounts for nearly all of it.
+First audio in 1.8 seconds, median. The model is nearly all of it.
 
 Twenty-four documented limitations. Demo video soon.
 
-[repo or demo video link]
+What would stop this from reaching production at your company?
+
+#VoiceAI #Palantir #ElevenLabs
+
+[repo or demo video link in the first comment]
 
 ## Notes for posting
 
@@ -40,5 +48,5 @@ Twenty-four documented limitations. Demo video soon.
 
 - Version A works as the caption for the demo video; version B works alone or as a comment thread opener.
 - If the repo link goes in, the README's gate table and `docs/demo/limitations.md` are the two pages a reader will open first; both are current.
-- Tag ElevenLabs and Palantir only if you want the reach; the post stands without it.
+- Per the social skill: hook in the first line (it is all that shows before "see more"), link in the first comment rather than the body, 3 to 5 hashtags at the end, close with a question. Tag ElevenLabs and Palantir only if you want the reach.
 
