@@ -24,9 +24,9 @@ Every help desk gets the same three questions. Where's my ticket? Has anyone fix
 
 So here's what a call looks like.
 
-You dial in and the agent asks for your four-digit PIN on the keypad. The PIN is tied to the phone number on your account, so it only works from your phone. Right PIN, wrong number, no luck. And since you key it in instead of saying it out loud, it never ends up in a transcript.
+You dial in and the agent asks for your four-digit PIN on the keypad. The PIN is tied to the phone number on your account, so it only works from your phone, and since you key it in instead of saying it out loud, it never ends up in a transcript.
 
-Once you're in, you can ask about a ticket by number, find out who's working on it and what else is on their plate, or describe a problem and hear the fix if someone's already solved it. If nothing matches, the agent reads the title, description, and priority back to you, creates the ticket, and gives you the new id one digit at a time.
+Once you're verified, you can ask about a ticket by number, find out who's working on it and what else is on their plate, or describe a problem and hear the fix if someone's already solved it. If nothing matches, the agent reads the title, description, and priority back to you, creates the ticket, and gives you the new id one digit at a time.
 
 On the admin side, new tickets show up in a Workshop app with the conversation that created them attached. High-priority ones also trigger an email right away. Everything else waits for the next look at the queue.
 
@@ -34,13 +34,11 @@ Under the hood: an ElevenLabs agent on a Twilio number talks to a small TypeScri
 
 First audio in about 1.8 seconds. Almost all of that is the model thinking.
 
-Twenty-four documented limitations. Demo video soon.
-
-Honestly this started as curiosity about whether ElevenLabs and Foundry would play nicely together. They do, better than I expected. ElevenLabs makes the conversation feel natural, Foundry makes the result something you can trust, and a help desk needs both.
+This started as curiosity about whether ElevenLabs and Foundry would complement each other and it turns out they do, better than I expected. ElevenLabs makes the conversation feel natural, Foundry makes the result something you can trust, and a help desk needs both.
 
 #VoiceAI #Palantir #ElevenLabs
 
-[repo or demo video link in the first comment]
+[demo video attached to the post; repo link in the first comment]
 
 ## Notes for posting
 
