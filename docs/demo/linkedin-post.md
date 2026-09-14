@@ -16,15 +16,15 @@ Stack: ElevenLabs Agents, Twilio, a TypeScript service on Railway, Palantir Foun
 
 [repo or demo video link]
 
-## Version B (about 120 words)
+## Version B (about 190 words)
 
-Built a phone help desk agent on ElevenLabs that reads and writes to a Palantir Foundry ontology.
+I built a phone help desk agent on ElevenLabs that reads from and writes to a Palantir Foundry ontology.
 
-Most help desk calls are three questions: what is the status of my ticket, has anyone seen this before, can you log this. The agent answers the first two before it ever creates anything.
+Most help desk calls come down to three questions: what is the status of my ticket, has anyone seen this before, and can you log this one. The agent handles all three in a single call, and only creates something if the first two did not already solve the problem.
 
-Caller id picks the account; a keypad PIN tied to that account proves it. Right digits from the wrong phone get nothing, and the PIN never enters a transcript.
+Here is how a call goes. You dial in, the agent greets you and asks for your four-digit PIN on the keypad. Caller id has already picked out your account, so the PIN has to be yours: the right digits from the wrong phone get nothing, and because it is keyed rather than spoken, it never appears in a transcript. Once you are in, you can ask about a ticket by number, hear who is working it and what else that team has open, or describe a problem and be read the fix if it has been solved before. If it has not, the agent confirms the title, description, and priority back to you, creates the issue, and reads the new id back one digit at a time.
 
-New issues go in through a Foundry Action, so every write carries permissions, parameter validation, and who, when, and with what. The agent never holds a Foundry credential.
+Under the hood: an ElevenLabs agent on a Twilio number calls webhook tools on a small TypeScript service (Fastify, on Railway). That service holds the only Foundry credential, enforces verification and rate limits, and talks to Foundry over the Ontology API. Reads are object queries; the one write is a Foundry Action, so every ticket inherits permissions, parameter validation, and an audit trail of who, when, and with what. New rows land in a Workshop app with the conversation id attached.
 
 Median 1.8 s to first audio; the model is 90% of that.
 
