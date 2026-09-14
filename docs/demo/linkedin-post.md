@@ -16,15 +16,17 @@ Stack: ElevenLabs Agents, Twilio, a TypeScript service on Railway, Palantir Foun
 
 [repo or demo video link]
 
-## Version B (about 190 words)
+## Version B (about 240 words)
 
 I built a phone help desk agent on ElevenLabs that reads from and writes to a Palantir Foundry ontology.
 
 Most help desk calls come down to three questions: what is the status of my ticket, has anyone seen this before, and can you log this one. The agent handles all three in a single call, and only creates something if the first two did not already solve the problem.
 
-The user dials in, the agent greets them and asks for their four-digit PIN on the keypad. The PIN is tied to the phone number on their account, so the agent only accepts it from that number; someone with the right PIN and the wrong phone gets nowhere. And because the PIN is keyed rather than spoken, it never appears in a transcript. Once verified, the user can ask about a ticket by number, hear who is working it and what else that team has open, or describe a problem and be read the fix if it has been solved before. If it has not, the agent confirms the title, description, and priority back to them, creates the issue, and reads the new id back one digit at a time.
+The user dials in, the agent greets them and asks for their four-digit PIN on the keypad. The PIN is tied to the phone number on their account, so the agent only accepts it from that number; someone with the right PIN and the wrong phone gets nowhere. Once verified, the user can ask about a ticket by number, hear who is working it and what else that team has open, or describe a problem and be read the fix if it has been solved before. If it has not, the agent confirms the title, description, and priority back to them, creates the issue, and reads the new id back one digit at a time.
 
-Under the hood: an ElevenLabs agent on a Twilio number calls webhook tools on a small TypeScript service (Fastify, on Railway). That service holds the only Foundry credential, enforces verification and rate limits, and talks to Foundry over the Ontology API. Reads are object queries; the one write is a Foundry Action, so every ticket inherits permissions, parameter validation, and an audit trail of who, when, and with what. New rows land in a Workshop app with the conversation id attached.
+On the other side, an administrator works out of a Workshop app where new tickets appear as they are created, with the conversation that produced each one. High-priority tickets also send them an email the moment the Action fires; everything else waits for their next look at the queue.
+
+Under the hood: an ElevenLabs agent on a Twilio number calls webhook tools on a small TypeScript service (Fastify, on Railway). That service holds the only Foundry credential, enforces verification and rate limits, and talks to Foundry over the Ontology API. Using a Foundry Action, every ticket inherits permissions, parameter validation, and an audit trail of who, when, and with what. New rows land in a Workshop app with the conversation id attached.
 
 Median 1.8 s to first audio; the model is 90% of that.
 
@@ -33,6 +35,8 @@ Twenty-four documented limitations. Demo video soon.
 [repo or demo video link]
 
 ## Notes for posting
+
+- **Before posting:** the high-priority email in version B is not live until the notification rule exists on the Action (Ontology Manager → `create-help-desk-issue` → Notifications, condition `priority` equals `high`) and one test call has delivered it. Do not post the paragraph before that.
 
 - Version A works as the caption for the demo video; version B works alone or as a comment thread opener.
 - If the repo link goes in, the README's gate table and `docs/demo/limitations.md` are the two pages a reader will open first; both are current.
