@@ -16,19 +16,19 @@ Stack: ElevenLabs Agents, Twilio, a TypeScript service on Railway, Palantir Foun
 
 [repo or demo video link]
 
-## Version B (about 240 words)
+## Version B (about 230 words)
 
-I built a phone help desk agent on ElevenLabs that reads from and writes to a Palantir Foundry ontology.
+I gave a help desk a phone number, and the phone number can write to Palantir Foundry.
 
-Most help desk calls come down to three questions: what is the status of my ticket, has anyone seen this before, and can you log this one. The agent handles all three in a single call, and only creates something if the first two did not already solve the problem.
+Every help desk hears the same three questions. Where is my ticket? Has anyone fixed this before? Can you log this? I built a voice agent on ElevenLabs that answers all three on one call, and only opens a ticket when the first two did not already solve the problem.
 
-The user dials in, the agent greets them and asks for their four-digit PIN on the keypad. The PIN is tied to the phone number on their account, so the agent only accepts it from that number; someone with the right PIN and the wrong phone gets nowhere. Once verified, the user can ask about a ticket by number, hear who is working it and what else that team has open, or describe a problem and be read the fix if it has been solved before. If it has not, the agent confirms the title, description, and priority back to them, creates the issue, and reads the new id back one digit at a time.
+A call goes like this. You dial in and the agent asks for your four-digit PIN on the keypad. Your PIN belongs to the phone number on your account, so it only works from that phone, and because you key it in rather than say it, it never lands in a transcript. Once you are through, you can ask about a ticket by number, hear who is working it and what else that team has open, or describe a problem and get the known fix read back to you. If nothing matches, the agent repeats the title, description, and priority, creates the ticket, and reads the new id back to you one digit at a time.
 
-On the other side, an administrator works out of a Workshop app where new tickets appear as they are created, with the conversation that produced each one. High-priority tickets also send them an email the moment the Action fires; everything else waits for their next look at the queue.
+On the other side, an administrator watches new tickets arrive in a Workshop app, each one carrying the conversation that created it. High-priority tickets also send an email the moment they are created. Everything else waits for the next look at the queue.
 
-Under the hood: an ElevenLabs agent on a Twilio number calls webhook tools on a small TypeScript service (Fastify, on Railway). That service holds the only Foundry credential, enforces verification and rate limits, and talks to Foundry over the Ontology API. Using a Foundry Action, every ticket inherits permissions, parameter validation, and an audit trail of who, when, and with what. New rows land in a Workshop app with the conversation id attached.
+Under the hood, the agent runs on a Twilio number and calls a small TypeScript service on Railway. That service holds the only Foundry credential, enforces verification and rate limits, and reads the ontology through its API. The one write is a Foundry Action, which means every ticket arrives with permissions checked, parameters validated, and a record of who created it, when, and with what.
 
-Median 1.8 s to first audio; the model is 90% of that.
+First audio in 1.8 seconds, median. The model accounts for nearly all of it.
 
 Twenty-four documented limitations. Demo video soon.
 
