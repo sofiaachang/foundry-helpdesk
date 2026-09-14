@@ -16,27 +16,27 @@ Stack: ElevenLabs Agents, Twilio, a TypeScript service on Railway, Palantir Foun
 
 [repo or demo video link]
 
-## Version B (about 260 words, Story Post structure)
+## Version B (about 250 words, casual)
 
-I built a phone line that can open tickets in Palantir Foundry. The hard part was not the voice.
+I built a phone line that can open tickets in Palantir Foundry. Turns out the voice was the easy part.
 
-Every help desk hears the same three questions. Where is my ticket? Has anyone fixed this before? Can you log this? I wanted a voice agent that answers all three in one call and only opens a ticket when the first two did not already solve the problem.
+Every help desk gets the same three questions. Where's my ticket? Has anyone fixed this before? Can you log this? I wanted a voice agent that handles all three in one call, and only opens a ticket if the first two didn't already sort it out.
 
-Here is what a call looks like.
+So here's what a call looks like.
 
-You dial in and the agent asks for your four-digit PIN on the keypad. That PIN belongs to the phone number on your account, so it only works from your phone. Someone with your PIN and a different number gets nowhere. And because you key it in instead of saying it, it never lands in a transcript.
+You dial in and the agent asks for your four-digit PIN on the keypad. The PIN is tied to the phone number on your account, so it only works from your phone. Right PIN, wrong number, no luck. And since you key it in instead of saying it out loud, it never ends up in a transcript.
 
-Once you are through, you can ask about a ticket by number, hear who is working on it and what else that team has open, or describe a problem and get the known fix read back to you. If nothing matches, the agent repeats the title, description, and priority, creates the ticket, and reads the new id back one digit at a time.
+Once you're in, you can ask about a ticket by number, find out who's working on it and what else is on their plate, or describe a problem and hear the fix if someone's already solved it. If nothing matches, the agent reads the title, description, and priority back to you, creates the ticket, and gives you the new id one digit at a time.
 
-On the other side, an administrator watches new tickets arrive in a Workshop app, each one carrying the conversation that created it. High-priority tickets also send an email the moment they are created. Everything else waits for the next look at the queue.
+On the admin side, new tickets show up in a Workshop app with the conversation that created them attached. High-priority ones also trigger an email right away. Everything else waits for the next look at the queue.
 
-Under the hood: an ElevenLabs agent on a Twilio number calls a small TypeScript service on Railway. That service holds the only Foundry credential, enforces verification and rate limits, and reads the ontology through its API. The one write is a Foundry Action, so every ticket arrives with permissions checked, parameters validated, and a record of who created it, when, and with what.
+Under the hood: an ElevenLabs agent on a Twilio number talks to a small TypeScript service on Railway. That service holds the only Foundry credential, handles verification and rate limits, and reads the ontology through its API. The one write goes through a Foundry Action, so every ticket comes with permissions checked, parameters validated, and a record of who created it, when, and with what.
 
-First audio in 1.8 seconds, median. The model is nearly all of it.
+First audio in about 1.8 seconds. Almost all of that is the model thinking.
 
 Twenty-four documented limitations. Demo video soon.
 
-This started as curiosity about whether ElevenLabs and Foundry would fit together. They do, and the fit is better than I expected: ElevenLabs makes the conversation feel effortless, and Foundry makes the outcome trustworthy. Neither can do the other's job, and a help desk needs both.
+Honestly this started as curiosity about whether ElevenLabs and Foundry would play nicely together. They do, better than I expected. ElevenLabs makes the conversation feel natural, Foundry makes the result something you can trust, and a help desk needs both.
 
 #VoiceAI #Palantir #ElevenLabs
 
@@ -45,7 +45,6 @@ This started as curiosity about whether ElevenLabs and Foundry would fit togethe
 ## Notes for posting
 
 - **Before posting:** the high-priority email in version B is not live until the notification rule exists on the Action (Ontology Manager → `create-help-desk-issue` → Notifications, condition `priority` equals `high`) and one test call has delivered it. Do not post the paragraph before that.
-
 - Version A works as the caption for the demo video; version B works alone or as a comment thread opener.
 - If the repo link goes in, the README's gate table and `docs/demo/limitations.md` are the two pages a reader will open first; both are current.
 - Per the social skill: hook in the first line (it is all that shows before "see more"), link in the first comment rather than the body, 3 to 5 hashtags at the end. Closes with a takeaway rather than a question, by choice. Tag ElevenLabs and Palantir only if you want the reach.
